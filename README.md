@@ -30,7 +30,7 @@
 
 **After updating:** the build is ad-hoc signed, so every new version looks like a different app to macOS and the Accessibility grant silently stops working. Toggle **MenuTuck** off and on again in **System Settings → Privacy & Security → Accessibility**.
 
-**Tested on macOS 27.0.1 only.** The macOS 14–26 fallback path (a `10,000 pt` spacer) has never been run on those versions. See [Known limitations](#known-limitations).
+**Tested on macOS 27.0.1 only.** On macOS 14–26, MenuTuck uses native hiding if the private API is present and the `10,000 pt` spacer fallback if not. Neither path has been run on those versions. See [Known limitations](#known-limitations).
 
 ---
 
@@ -39,7 +39,7 @@
 - **Three Menu Bar Sections (`Visible`, `Hidden`, `Always Hidden`)**:
   - **`|‹` / `|›` (Hidden Divider & Toggle)**: Sits between the **Hidden** section (to its left) and the **Visible** section (to its right).
   - **`‖` (Always-Hidden Divider)**: Sits between the **Always Hidden** section (to its left) and the **Hidden** section (to its right).
-- **Native In-Place Hiding on macOS 26/27 (`MenuBarAgent`)**:
+- **Native In-Place Hiding (`MenuBarAgent`, tested on macOS 27)**:
   - Uses `MenuBarClientCore` (`MBAssessmentModeAssertion`) to hide and restore third-party menu bar icons in place, with no Screen Recording permission.
   - Falls back to expandable `NSStatusItem` spacers (`10,000 pt`) when that API is unavailable (untested, see below).
 - **Two Ways to Organize Icons**:
@@ -82,7 +82,7 @@ Other menu bar managers worth a look. Licenses as listed by each project; compar
 ## Known limitations
 
 - **Private API.** In-place hiding uses Apple's private `MenuBarClientCore` framework. A macOS update can change or remove it. MenuTuck checks that the expected selectors exist and falls back to the spacer path if not, but that check can't catch every change.
-- **Fallback untested.** The `10,000 pt` spacer fallback (macOS 14–26) has never been run on those versions.
+- **Older macOS untested.** Only macOS 27.0.1 has been tried. I don't know which of macOS 14–26 ship `MenuBarClientCore`, or whether the `10,000 pt` spacer fallback works on them.
 - **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
 - **Not notarized.** Ad-hoc signed, hence the `xattr -cr` step and the Accessibility re-toggle after each update.
 
