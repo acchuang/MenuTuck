@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Native macOS Menu Bar Icon Manager</strong><br/>
-  Hide, reveal, and organize menu bar icons into <em>Visible</em>, <em>Hidden</em>, and <em>Always Hidden</em> sections using native macOS APIs.
+  Hide, reveal, and organize menu bar icons into <em>Visible</em>, <em>Hidden</em>, and <em>Always Hidden</em> sections. A small Swift app, MIT-licensed, no Screen Recording permission.
 </p>
 
 <p align="center">
@@ -55,6 +55,14 @@
   - Native `SMAppService` Launch at Login support.
 
 ---
+
+## What's new in v0.1.1
+
+- **Safer private-API use.** MenuTuck now checks that every private `MenuBarClientCore` selector it calls exists before enabling in-place hiding, and uses the spacer fallback if any is missing.
+- **Activation errors are logged.** A failed `activate` call now shows up in the unified log (subsystem `com.acchuang.MenuTuck`, category `MenuBarHider`) instead of being dropped.
+- **MIT `LICENSE`** added.
+- **`scripts/package.sh`** builds the `.dmg` and `.zip` and prints their SHA-256.
+- **README claims trimmed** to what was measured or checked: the unverified competitor numbers are gone.
 
 ## MenuTuck at a glance
 
