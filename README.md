@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.0)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.1)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -28,6 +28,10 @@
    ```
 4. Grant **Accessibility** access when prompted (**System Settings → Privacy & Security → Accessibility**) so MenuTuck can detect live `⌘`-drags across dividers and trigger menu bar items.
 
+**After updating:** the build is ad-hoc signed, so every new version looks like a different app to macOS and the Accessibility grant silently stops working. Toggle **MenuTuck** off and on again in **System Settings → Privacy & Security → Accessibility**.
+
+**Tested on macOS 27.0.1 only.** The macOS 14–26 fallback path (a `10,000 pt` spacer) has never been run on those versions. See [Known limitations](#known-limitations).
+
 ---
 
 ## Features
@@ -36,8 +40,8 @@
   - **`|‹` / `|›` (Hidden Divider & Toggle)**: Sits between the **Hidden** section (to its left) and the **Visible** section (to its right).
   - **`‖` (Always-Hidden Divider)**: Sits between the **Always Hidden** section (to its left) and the **Hidden** section (to its right).
 - **Native In-Place Hiding on macOS 26/27 (`MenuBarAgent`)**:
-  - Uses `MenuBarClientCore` (`MBAssessmentModeAssertion`) on macOS 26/27 to hide and restore third-party menu bar icons in place (`<15 ms`) with zero Screen Recording permissions.
-  - Falls back to expandable `NSStatusItem` spacers (`10,000 pt`) on macOS 14–15.
+  - Uses `MenuBarClientCore` (`MBAssessmentModeAssertion`) to hide and restore third-party menu bar icons in place, with no Screen Recording permission.
+  - Falls back to expandable `NSStatusItem` spacers (`10,000 pt`) when that API is unavailable (untested, see below).
 - **Two Ways to Organize Icons**:
   - **In the Menu Bar**: Hold `⌘` and drag any icon to the left of `|‹` / `|›` to hide it, or to the left of `‖` to always hide it.
   - **In Settings (`Menu Bar Items` tab)**: Assign any running menu bar app to **Visible**, **Hidden**, or **Always Hidden** with the section picker, or click **Click** to trigger its menu bar item remotely.
@@ -52,23 +56,39 @@
 
 ---
 
-## Comparison with Alternatives
+## MenuTuck at a glance
 
-| Feature / Metric | **MenuTuck** | **Bartender 5** | **Ice / Thaw** | **Hidden Bar** | **Vanilla** |
-| --- | --- | --- | --- | --- | --- |
-| **macOS 26 / 27 (`MenuBarAgent`) Support** | **Yes (Native `MenuBarClientCore`)** | Partial (`CGWindowList` broken) | Partial (`CGWindowList` broken) | Broken (`10,000 pt` spacer ignored) | Broken (`10,000 pt` spacer ignored) |
-| **Hiding Mechanism** | Native `MBAssessmentModeAssertion` + `\|‹` / `‖` dividers | `10,000 pt` spacer + `ScreenCaptureKit` | `10,000 pt` spacer + `ScreenCaptureKit` | `10,000 pt` spacer only | `10,000 pt` spacer only |
-| **App Bundle / Binary Size** | **`1.8 MB` (`600 KB` binary)** | `~42 MB` | `~18–25 MB` | `~8–12 MB` | `~15–20 MB` |
-| **RAM Footprint** | **`~30–80 MB`** (Zero image buffers) | `~150–300 MB` (`IOSurface` buffers) | `~120–240 MB` (`CGImage` caches) | `~35–55 MB` | `~60–110 MB` |
-| **Idle CPU Usage** | **`0.0% – 0.5%`** | `1.0% – 5.0%` (Pixel-diff polling) | `1.0% – 4.0%` (Window/image polling) | `< 0.5%` | `0.5% – 1.5%` |
-| **GPU / WindowServer Load** | **Zero** (Hidden items detached at server) | **High** (Continuous screen capture) | **Moderate–High** (Screen capture) | **Low** (`10,000 pt` window surface) | **Low** (`10,000 pt` window surface) |
-| **Third-Party Dependencies** | **Zero** (`100%` Apple frameworks) | Sparkle + private bundles | Multiple SwiftPM packages | Multiple CocoaPods / packages | Custom frameworks |
-| **Screen Recording Permission** | **Not Required** (No purple indicator) | **Required** | **Required** | Not Required | Not Required |
-| **Mouse Cursor Hijacking** | **No** (`<15 ms` XPC assertion) | **Yes** (`CGEvent` cursor warp) | **Yes** (`CGEvent` cursor warp) | N/A (No Settings list) | N/A (No Settings list) |
-| **Sections (`Visible` / `Hidden` / `Always Hidden`)** | **3 Sections** | 3 Sections | 3 Sections | 3 Sections | 2 Free / 3 Paid |
-| **Assign Apps via Settings Window** | **Yes** (Instant picker + remote click) | Yes | Yes | No (`⌘`-drag only) | No (`⌘`-drag only) |
-| **Divider Collision Prevention** | **Unified `\|‹` / `\|›` + `‖`** (2 items for 3 sections) | Single icon | Single icon + divider | Separate `\|` and `›` (traps icons between them) | Separate items |
-| **License & Cost** | **Free & Open Source (MIT)** | Proprietary (~$20) | Free & Open Source (GPLv3) | Free & Open Source (MIT) | Freemium (~$10 Pro) |
+Measured on macOS 27.0.1 (running instance, idle):
+
+| Metric | MenuTuck |
+| --- | --- |
+| App bundle / binary size | `1.8 MB` / `600 KB` |
+| Memory (`phys_footprint`) | `~82 MB` |
+| Idle CPU (`top`) | `~0.4%` |
+| Third-party dependencies | None (Apple frameworks only) |
+| Screen Recording permission | Not requested |
+| License / cost | MIT, free |
+
+## Alternatives
+
+Other menu bar managers worth a look. Licenses as listed by each project; compare features yourself.
+
+| App | License / cost |
+| --- | --- |
+| [Bartender](https://www.macbartender.com) | Proprietary, paid |
+| [Ice](https://github.com/jordanbaird/Ice) | GPL-3.0, free |
+| [Hidden Bar](https://github.com/dwarvesf/hidden) | MIT, free |
+
+## Known limitations
+
+- **Private API.** In-place hiding uses Apple's private `MenuBarClientCore` framework. A macOS update can change or remove it. MenuTuck checks that the expected selectors exist and falls back to the spacer path if not, but that check can't catch every change.
+- **Fallback untested.** The `10,000 pt` spacer fallback (macOS 14–26) has never been run on those versions.
+- **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
+- **Not notarized.** Ad-hoc signed, hence the `xattr -cr` step and the Accessibility re-toggle after each update.
+
+## Bugs & feedback
+
+Open an issue: [github.com/acchuang/MenuTuck/issues](https://github.com/acchuang/MenuTuck/issues). Include your macOS version.
 
 ---
 
