@@ -97,6 +97,8 @@ Other menu bar managers worth a look. Licenses as listed by each project; compar
 
 - **Private API.** In-place hiding uses Apple's private `MenuBarClientCore` framework. A macOS update can change or remove it. MenuTuck checks that the expected selectors exist and falls back to the spacer path if not, but that check can't catch every change.
 - **Older macOS untested.** Only macOS 27.0.1 has been tried. I don't know which of macOS 14–26 ship `MenuBarClientCore`, or whether the `10,000 pt` spacer fallback works on them.
+- **Hardcoded system items.** The hide list allows system menu bar items `0...15` and assumes `4` is the keyboard item. If a future macOS adds an item with a higher ID, MenuTuck may hide it.
+- **Multiple displays.** "Re-hide on outside click" measures the menu bar against the main screen only, so it can misfire when you click on a second display. Only a single display has been tried.
 - **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
 - **Not notarized.** Ad-hoc signed, hence the `xattr -cr` step and the Accessibility re-grant after each update.
 
