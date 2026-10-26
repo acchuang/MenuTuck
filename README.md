@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.1)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.2)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -28,7 +28,7 @@
    ```
 4. Grant **Accessibility** access when prompted (**System Settings → Privacy & Security → Accessibility**) so MenuTuck can detect live `⌘`-drags across dividers and trigger menu bar items.
 
-**After updating:** the build is ad-hoc signed, so every new version looks like a different app to macOS and the Accessibility grant silently stops working. Toggle **MenuTuck** off and on again in **System Settings → Privacy & Security → Accessibility**.
+**After updating:** the build is ad-hoc signed, so every new version looks like a different app to macOS and the Accessibility grant silently stops working. Remove **MenuTuck** from **System Settings → Privacy & Security → Accessibility** with **–**, then add it again (or run `tccutil reset Accessibility com.acchuang.MenuTuck` and relaunch).
 
 **Tested on macOS 27.0.1 only.** On macOS 14–26, MenuTuck uses native hiding if the private API is present and the `10,000 pt` spacer fallback if not. Neither path has been run on those versions. See [Known limitations](#known-limitations).
 
@@ -55,6 +55,12 @@
   - Native `SMAppService` Launch at Login support.
 
 ---
+
+## What's new in v0.1.2
+
+- **No more repeated Accessibility windows.** Without the permission, MenuTuck used to open Settings and the system prompt on every menu bar layout change. It now does so once per launch.
+- **Failed hiding retries.** If activating in-place hiding fails, MenuTuck clears its state so the next apply tries again instead of staying stuck.
+- **`scripts/package.sh`** no longer overwrites the installed app.
 
 ## What's new in v0.1.1
 
@@ -92,7 +98,7 @@ Other menu bar managers worth a look. Licenses as listed by each project; compar
 - **Private API.** In-place hiding uses Apple's private `MenuBarClientCore` framework. A macOS update can change or remove it. MenuTuck checks that the expected selectors exist and falls back to the spacer path if not, but that check can't catch every change.
 - **Older macOS untested.** Only macOS 27.0.1 has been tried. I don't know which of macOS 14–26 ship `MenuBarClientCore`, or whether the `10,000 pt` spacer fallback works on them.
 - **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
-- **Not notarized.** Ad-hoc signed, hence the `xattr -cr` step and the Accessibility re-toggle after each update.
+- **Not notarized.** Ad-hoc signed, hence the `xattr -cr` step and the Accessibility re-grant after each update.
 
 ## Bugs & feedback
 
