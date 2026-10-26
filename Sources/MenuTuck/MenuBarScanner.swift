@@ -29,7 +29,6 @@ enum MenuBarScanner {
         "com.apple.MenuBarAgent",
         "com.apple.controlcenter",
         "com.apple.systemuiserver",
-        "com.apple. screencaptureui",
         "com.apple.screencaptureui",
     ]
 
