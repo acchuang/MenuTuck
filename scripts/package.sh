@@ -4,11 +4,12 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-./scripts/build-app.sh release
+SKIP_INSTALL=1 ./scripts/build-app.sh release
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-cp -R build/MenuTuck.app "$STAGE/"
+ditto --norsrc --noextattr build/MenuTuck.app "$STAGE/MenuTuck.app"
+codesign --verify --deep --strict "$STAGE/MenuTuck.app"
 ln -s /Applications "$STAGE/Applications"
 
 rm -f build/MenuTuck.dmg build/MenuTuck-macOS.zip
