@@ -12,7 +12,7 @@ cp -R build/MenuTuck.app "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 
 rm -f build/MenuTuck.dmg build/MenuTuck-macOS.zip
-ditto -c -k --keepParent build/MenuTuck.app build/MenuTuck-macOS.zip
+ditto -c -k --norsrc --noextattr --keepParent build/MenuTuck.app build/MenuTuck-macOS.zip
 hdiutil create -quiet -volname MenuTuck -srcfolder "$STAGE" -format UDZO build/MenuTuck.dmg
 
 shasum -a 256 build/MenuTuck.dmg build/MenuTuck-macOS.zip
