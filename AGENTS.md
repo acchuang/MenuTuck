@@ -1,7 +1,7 @@
 # AGENTS.md — `MenuTuck`
 
 Native macOS menu bar icon manager (`AppKit` + `SwiftUI`, Swift 5.10+, macOS 14+).
-Uses a **Hybrid Divider Architecture** (tested on macOS 27.0.1 only): physical draggable dividers (`‹`/`›`, `|`, `‖`) in the menu bar define section boundaries, while `MenuBarClientCore` (`MBAssessmentModeAssertion`) hides and reveals icons in place.
+Uses a **Hybrid Divider Architecture** (verified on macOS 27.0.1 and 27.2 only): physical draggable dividers (`‹`/`›`, `|`, `‖`) in the menu bar define section boundaries, while `MenuBarClientCore` (`MBAssessmentModeAssertion`) hides and reveals icons in place.
 
 ## Build & Run
 

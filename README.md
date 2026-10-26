@@ -30,7 +30,7 @@
 
 **After updating:** the build is ad-hoc signed, so every new version looks like a different app to macOS and the Accessibility grant silently stops working. Remove **MenuTuck** from **System Settings → Privacy & Security → Accessibility** with **–**, then add it again (or run `tccutil reset Accessibility com.acchuang.MenuTuck` and relaunch).
 
-**Tested on macOS 27.0.1 only.** On macOS 14–26, MenuTuck uses native hiding if the private API is present and the `10,000 pt` spacer fallback if not. Neither path has been run on those versions. See [Known limitations](#known-limitations).
+**Verified on macOS 27.0.1 and 27.2 only.** On macOS 14–26, MenuTuck uses native hiding if the private API is present and the `10,000 pt` spacer fallback if not. Neither path has been run on those versions. See [Known limitations](#known-limitations).
 
 ---
 
@@ -96,7 +96,7 @@ Other menu bar managers worth a look. Licenses as listed by each project; compar
 ## Known limitations
 
 - **Private API.** In-place hiding uses Apple's private `MenuBarClientCore` framework. A macOS update can change or remove it. MenuTuck checks that the expected selectors exist and falls back to the spacer path if not, but that check can't catch every change.
-- **Older macOS untested.** Only macOS 27.0.1 has been tried. I don't know which of macOS 14–26 ship `MenuBarClientCore`, or whether the `10,000 pt` spacer fallback works on them.
+- **Older macOS untested.** Only macOS 27.0.1 and 27.2 have been tried. I don't know which of macOS 14–26 ship `MenuBarClientCore`, or whether the `10,000 pt` spacer fallback works on them.
 - **Hardcoded system items.** The hide list allows system menu bar items `0...15` and assumes `4` is the keyboard item. If a future macOS adds an item with a higher ID, MenuTuck may hide it.
 - **Multiple displays.** "Re-hide on outside click" measures the menu bar against the main screen only, so it can misfire when you click on a second display. Only a single display has been tried.
 - **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
