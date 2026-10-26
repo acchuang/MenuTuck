@@ -52,6 +52,21 @@
 
 ---
 
+## Comparison with Alternatives
+
+| Feature | **MenuTuck** | **Bartender 5** | **Ice / Thaw** | **Hidden Bar** | **Vanilla** |
+| --- | --- | --- | --- | --- | --- |
+| **macOS 26 / 27 (`MenuBarAgent`) Support** | **Yes (Native `MenuBarClientCore`)** | Partial (`CGWindowList` broken) | Partial (`CGWindowList` broken) | Broken (`10,000 pt` spacer ignored) | Broken (`10,000 pt` spacer ignored) |
+| **Hiding Mechanism** | Native `MBAssessmentModeAssertion` + `\|‹` / `‖` dividers | `10,000 pt` spacer + `ScreenCaptureKit` | `10,000 pt` spacer + `ScreenCaptureKit` | `10,000 pt` spacer only | `10,000 pt` spacer only |
+| **Screen Recording Permission** | **Not Required** (No purple indicator) | **Required** | **Required** | Not Required | Not Required |
+| **Mouse Cursor Hijacking** | **No** (`<15 ms` XPC assertion) | **Yes** (`CGEvent` cursor warp) | **Yes** (`CGEvent` cursor warp) | N/A (No Settings list) | N/A (No Settings list) |
+| **Sections (`Visible` / `Hidden` / `Always Hidden`)** | **3 Sections** | 3 Sections | 3 Sections | 3 Sections | 2 Free / 3 Paid |
+| **Assign Apps via Settings Window** | **Yes** (Instant picker + remote click) | Yes | Yes | No (`⌘`-drag only) | No (`⌘`-drag only) |
+| **Divider Collision Prevention** | **Unified `\|‹` / `\|›` + `‖`** (2 items for 3 sections) | Single icon | Single icon + divider | Separate `\|` and `›` (traps icons between them) | Separate items |
+| **License & Cost** | **Free & Open Source (MIT)** | Proprietary (~$20) | Free & Open Source (GPLv3) | Free & Open Source (MIT) | Freemium (~$10 Pro) |
+
+---
+
 ## Architecture
 
 | File | Responsibility |
