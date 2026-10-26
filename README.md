@@ -118,6 +118,9 @@ cd MenuTuck
 # Build release app bundle and install to /Applications/MenuTuck.app
 ./scripts/build-app.sh release
 
+# Build MenuTuck.dmg and MenuTuck-macOS.zip into build/ (prints SHA-256)
+./scripts/package.sh
+
 # Optional: regenerate Resources/AppIcon.icns from CoreGraphics script
 swift scripts/generate-icon.swift
 ```
