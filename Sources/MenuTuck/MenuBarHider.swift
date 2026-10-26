@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import os
 
 @objc private protocol MBAssessmentModeConfigurationProtocol: NSObjectProtocol {
     init(allowedSystemItems: [NSNumber], allowedBundleIdentifiers: [String])
@@ -15,6 +16,8 @@ import Foundation
 /// to hide and reveal menu bar icons in place based on MenuTuck's divider sections.
 final class MenuBarHider {
     static let shared = MenuBarHider()
+
+    private static let log = Logger(subsystem: "com.acchuang.MenuTuck", category: "MenuBarHider")
 
     private let configType: MBAssessmentModeConfigurationProtocol.Type?
     private let assertionType: MBAssessmentModeAssertionProtocol.Type?
@@ -33,8 +36,13 @@ final class MenuBarHider {
 
     private init() {
         _ = dlopen("/System/Library/PrivateFrameworks/MenuBarClientCore.framework/MenuBarClientCore", RTLD_NOW)
+        // Private API: confirm every selector we call exists, so a changed signature
+        // falls back to the spacer path instead of an unrecognized-selector crash.
         if let cfgClass = NSClassFromString("MBAssessmentModeConfiguration"),
-           let assClass = NSClassFromString("MBAssessmentModeAssertion") {
+           let assClass = NSClassFromString("MBAssessmentModeAssertion"),
+           class_respondsToSelector(cfgClass, NSSelectorFromString("initWithAllowedSystemItems:allowedBundleIdentifiers:")),
+           class_respondsToSelector(assClass, #selector(MBAssessmentModeAssertionProtocol.activate(withConfiguration:completionHandler:))),
+           class_respondsToSelector(assClass, #selector(MBAssessmentModeAssertionProtocol.invalidate)) {
             configType = unsafeBitCast(cfgClass, to: MBAssessmentModeConfigurationProtocol.Type.self)
             assertionType = unsafeBitCast(assClass, to: MBAssessmentModeAssertionProtocol.Type.self)
         } else {
@@ -99,7 +107,11 @@ final class MenuBarHider {
 
         let newAssertion = assertionType.init()
         activeAssertion = newAssertion
-        newAssertion.activate(withConfiguration: config) { _ in }
+        newAssertion.activate(withConfiguration: config) { error in
+            if let error {
+                Self.log.error("MBAssessmentModeAssertion activate failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     /// Restores all hidden menu bar icons.
