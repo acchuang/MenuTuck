@@ -1,6 +1,11 @@
 import AppKit
 import ApplicationServices
 
+extension CGRect {
+    /// True for frames materialized on the menu bar, not parked off-screen (e.g. y=1770).
+    var isOnMenuBar: Bool { minY < 40 && minX > 5 }
+}
+
 /// One status item that belongs to another app.
 struct MenuBarItem: Identifiable, Hashable {
     let id: String
@@ -71,8 +76,8 @@ enum MenuBarScanner {
             guard let axList = results.first(where: { $0.first?.pid == pid }), !axList.isEmpty else {
                 continue
             }
-            // Prefer on-screen items (minY < 40); pick the leftmost item for divider comparison.
-            let onScreen = axList.filter { $0.frame.minY < 40 && $0.frame.minX > 5 }
+            // Prefer on-screen items; pick the leftmost item for divider comparison.
+            let onScreen = axList.filter { $0.frame.isOnMenuBar }
             let chosen = (onScreen.isEmpty ? axList : onScreen).min { $0.frame.minX < $1.frame.minX } ?? axList[0]
             let combinedDetail = axList.map(\.detail).first { !$0.isEmpty } ?? chosen.detail
             merged.append(

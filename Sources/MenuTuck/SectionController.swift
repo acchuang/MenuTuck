@@ -278,9 +278,9 @@ final class SectionController: NSObject, ObservableObject {
             var sz = CGSize.zero
             if let posRef { AXValueGetValue(posRef as! AXValue, .cgPoint, &pt) }
             if let sizeRef { AXValueGetValue(sizeRef as! AXValue, .cgSize, &sz) }
-            // Only accept frames that are materialized on the menu bar (not parked at y=1770).
-            if pt.y < 40 && pt.x > 5 && sz.width > 0 {
-                result[key] = CGRect(origin: pt, size: sz)
+            let frame = CGRect(origin: pt, size: sz)
+            if frame.isOnMenuBar && sz.width > 0 {
+                result[key] = frame
             }
         }
         return result

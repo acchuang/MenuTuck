@@ -52,7 +52,7 @@ final class ItemsModel: ObservableObject {
         let found = MenuBarScanner.scan()
         let ahEnabled = prefs.alwaysHiddenEnabled
 
-        for scanned in found where scanned.frame.minY < 40 && scanned.frame.minX > 5 {
+        for scanned in found where scanned.frame.isOnMenuBar {
             let key = scanned.storageKey
             let detected = Self.sectionFromFrame(scanned.frame, layout: layout, alwaysHiddenEnabled: ahEnabled)
             let prevPhysical = prefs.lastPhysicalSection(for: key)
@@ -94,8 +94,7 @@ final class ItemsModel: ObservableObject {
                     var item = item
                     let key = item.storageKey
                     let isHiddenByAssertion = currentlyHidden.contains(key)
-                    let hasLiveFrame = item.isFromAX && !isHiddenByAssertion
-                        && item.frame.minY < 40 && item.frame.minX > 5
+                    let hasLiveFrame = item.isFromAX && !isHiddenByAssertion && item.frame.isOnMenuBar
 
                     if hasLiveFrame, let layout, layout.toggle.width > 0 {
                         let detected = Self.sectionFromFrame(item.frame, layout: layout, alwaysHiddenEnabled: ahEnabled)
