@@ -1,7 +1,7 @@
 # AGENTS.md — `MenuTuck`
 
 Native macOS menu bar icon manager (`AppKit` + `SwiftUI`, Swift 5.10+, macOS 14+).
-Uses a **Hybrid Divider Architecture** on macOS 26/27: physical draggable dividers (`‹`/`›`, `|`, `‖`) in the menu bar define section boundaries, while `MenuBarClientCore` (`MBAssessmentModeAssertion`) hides and reveals icons in place.
+Uses a **Hybrid Divider Architecture** (tested on macOS 27.0.1 only): physical draggable dividers (`‹`/`›`, `|`, `‖`) in the menu bar define section boundaries, while `MenuBarClientCore` (`MBAssessmentModeAssertion`) hides and reveals icons in place.
 
 ## Build & Run
 
@@ -11,6 +11,12 @@ Uses a **Hybrid Divider Architecture** on macOS 26/27: physical draggable divide
 
 # Debug build
 ./scripts/build-app.sh debug
+
+# Build without touching /Applications (keeps the installed app and its Accessibility grant)
+SKIP_INSTALL=1 ./scripts/build-app.sh
+
+# Build build/MenuTuck.dmg and build/MenuTuck-macOS.zip (never installs; prints SHA-256)
+./scripts/package.sh
 
 # Regenerate Resources/AppIcon.icns and Resources/AppIcon-1024.png
 swift scripts/generate-icon.swift
@@ -24,7 +30,7 @@ open /Applications/MenuTuck.app
 - [`Sources/MenuTuck/main.swift`](Sources/MenuTuck/main.swift) — Entry point (`NSApplication.ActivationPolicy.accessory`).
 - [`Sources/MenuTuck/AppDelegate.swift`](Sources/MenuTuck/AppDelegate.swift) — App lifecycle and settings window routing.
 - [`Sources/MenuTuck/SectionController.swift`](Sources/MenuTuck/SectionController.swift) — Owns the 2 boundary status items (`toggleItem` `|‹`/`|›` and `alwaysHiddenDivider` `‖`), collapses `‖` to `0 pt` via `NSStatusBarContentView` width-constraint deactivation so `MenuBarAgent` never loses its X position, resolves true macOS 27 screen coordinates via self-targeted `AXUIElementCreateApplication(getpid())`, and watches `ownAXFrames()` every `0.35s` to detect `⌘`-drags across dividers.
-- [`Sources/MenuTuck/MenuBarHider.swift`](Sources/MenuTuck/MenuBarHider.swift) — Drives macOS 26/27 `MenuBarClientCore` (`MBAssessmentModeAssertion` + `MBAssessmentModeConfiguration`) to hide and reveal third-party menu bar icons in place. Always invalidates the previous assertion before activating a new one.
+- [`Sources/MenuTuck/MenuBarHider.swift`](Sources/MenuTuck/MenuBarHider.swift) — Drives the private `MenuBarClientCore` (`MBAssessmentModeAssertion` + `MBAssessmentModeConfiguration`) to hide and reveal third-party menu bar icons in place. `isSupported` is false unless every selector it calls exists, which selects the spacer fallback. Always invalidates the previous assertion before activating a new one; a failed `activate` is logged and its state is cleared so the next `apply()` retries.
 - [`Sources/MenuTuck/MenuBarScanner.swift`](Sources/MenuTuck/MenuBarScanner.swift) — Parallel `AXUIElement` (`kAXExtrasMenuBarAttribute`) scanner.
 - [`Sources/MenuTuck/ItemMover.swift`](Sources/MenuTuck/ItemMover.swift) — Synthetic `CGEvent` `⌘`-drag helper.
 - [`Sources/MenuTuck/ItemsModel.swift`](Sources/MenuTuck/ItemsModel.swift) — Observable state for scanning, classifying items relative to the `|›` and `‖` dividers, tracking `lastPhysicalSections` so Settings picker overrides and physical `⌘`-drags never overwrite each other, and triggering items.
