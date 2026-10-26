@@ -4,6 +4,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sections: SectionController!
     private var model: ItemsModel!
     private var settingsWindow: SettingsWindowController?
+    private var didPromptForTrust = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MenuBarHider.shared.showAll()
@@ -17,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.model.checkTrust()
             if !self.model.isTrusted {
+                // Layout shifts fire constantly (clock, other apps' icons); prompt once per launch, not per shift.
+                guard !self.didPromptForTrust else { return }
+                self.didPromptForTrust = true
                 self.openSettings()
                 self.model.requestTrust()
             } else {
