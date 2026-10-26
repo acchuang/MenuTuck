@@ -12,8 +12,8 @@ import os
     func invalidate()
 }
 
-/// Uses macOS's native `MenuBarClientCore` visibility restriction assertion (macOS 26+)
-/// to hide and reveal menu bar icons in place based on MenuTuck's divider sections.
+/// Uses the private `MenuBarClientCore` visibility restriction assertion to hide and reveal
+/// menu bar icons in place based on MenuTuck's divider sections. Tested on macOS 27.0.1 only.
 final class MenuBarHider {
     static let shared = MenuBarHider()
 
@@ -38,14 +38,16 @@ final class MenuBarHider {
         _ = dlopen("/System/Library/PrivateFrameworks/MenuBarClientCore.framework/MenuBarClientCore", RTLD_NOW)
         // Private API: confirm every selector we call exists, so a changed signature
         // falls back to the spacer path instead of an unrecognized-selector crash.
-        if let cfgClass = NSClassFromString("MBAssessmentModeConfiguration"),
-           let assClass = NSClassFromString("MBAssessmentModeAssertion"),
+        let cfgClass: AnyClass? = NSClassFromString("MBAssessmentModeConfiguration")
+        let assClass: AnyClass? = NSClassFromString("MBAssessmentModeAssertion")
+        if let cfgClass, let assClass,
            class_respondsToSelector(cfgClass, NSSelectorFromString("initWithAllowedSystemItems:allowedBundleIdentifiers:")),
            class_respondsToSelector(assClass, #selector(MBAssessmentModeAssertionProtocol.activate(withConfiguration:completionHandler:))),
            class_respondsToSelector(assClass, #selector(MBAssessmentModeAssertionProtocol.invalidate)) {
             configType = unsafeBitCast(cfgClass, to: MBAssessmentModeConfigurationProtocol.Type.self)
             assertionType = unsafeBitCast(assClass, to: MBAssessmentModeAssertionProtocol.Type.self)
         } else {
+            Self.log.error("MenuBarClientCore unusable (configuration class: \(cfgClass != nil), assertion class: \(assClass != nil), or a selector changed); using spacer fallback")
             configType = nil
             assertionType = nil
         }
@@ -107,9 +109,17 @@ final class MenuBarHider {
 
         let newAssertion = assertionType.init()
         activeAssertion = newAssertion
-        newAssertion.activate(withConfiguration: config) { error in
-            if let error {
+        newAssertion.activate(withConfiguration: config) { [weak self] error in
+            guard let error else { return }
+            DispatchQueue.main.async {
+                // A superseded assertion was invalidated on purpose; its error says nothing about current state.
+                guard let self, self.activeAssertion === newAssertion else { return }
                 Self.log.error("MBAssessmentModeAssertion activate failed: \(error.localizedDescription, privacy: .public)")
+                // Forget the failed activation so the next apply() retries and callers don't treat these apps as hidden.
+                self.activeAssertion = nil
+                self.currentlyHiddenBundleIDs.removeAll()
+                self.currentlyAllowedBundleIDs.removeAll()
+                newAssertion.invalidate()
             }
         }
     }
