@@ -1,0 +1,44 @@
+# AGENTS.md — `MenuTuck`
+
+Native macOS menu bar icon manager (`AppKit` + `SwiftUI`, Swift 5.10+, macOS 14+).
+Uses a **Hybrid Divider Architecture** on macOS 26/27: physical draggable dividers (`‹`/`›`, `|`, `‖`) in the menu bar define section boundaries, while `MenuBarClientCore` (`MBAssessmentModeAssertion`) hides and reveals icons in place.
+
+## Build & Run
+
+```bash
+# Build, sign, and install to /Applications/MenuTuck.app (default: release, ad-hoc signed)
+./scripts/build-app.sh
+
+# Debug build
+./scripts/build-app.sh debug
+
+# Regenerate Resources/AppIcon.icns and Resources/AppIcon-1024.png
+swift scripts/generate-icon.swift
+
+# Launch from /Applications (required so sandboxed MenuBarAgent resolves CFBundleIdentifier)
+open /Applications/MenuTuck.app
+```
+
+## Architecture
+
+- [`Sources/MenuTuck/main.swift`](Sources/MenuTuck/main.swift) — Entry point (`NSApplication.ActivationPolicy.accessory`).
+- [`Sources/MenuTuck/AppDelegate.swift`](Sources/MenuTuck/AppDelegate.swift) — App lifecycle and settings window routing.
+- [`Sources/MenuTuck/SectionController.swift`](Sources/MenuTuck/SectionController.swift) — Owns the 2 boundary status items (`toggleItem` `|‹`/`|›` and `alwaysHiddenDivider` `‖`), collapses `‖` to `0 pt` via `NSStatusBarContentView` width-constraint deactivation so `MenuBarAgent` never loses its X position, resolves true macOS 27 screen coordinates via self-targeted `AXUIElementCreateApplication(getpid())`, and watches `ownAXFrames()` every `0.35s` to detect `⌘`-drags across dividers.
+- [`Sources/MenuTuck/MenuBarHider.swift`](Sources/MenuTuck/MenuBarHider.swift) — Drives macOS 26/27 `MenuBarClientCore` (`MBAssessmentModeAssertion` + `MBAssessmentModeConfiguration`) to hide and reveal third-party menu bar icons in place. Always invalidates the previous assertion before activating a new one.
+- [`Sources/MenuTuck/MenuBarScanner.swift`](Sources/MenuTuck/MenuBarScanner.swift) — Parallel `AXUIElement` (`kAXExtrasMenuBarAttribute`) scanner.
+- [`Sources/MenuTuck/ItemMover.swift`](Sources/MenuTuck/ItemMover.swift) — Synthetic `CGEvent` `⌘`-drag helper.
+- [`Sources/MenuTuck/ItemsModel.swift`](Sources/MenuTuck/ItemsModel.swift) — Observable state for scanning, classifying items relative to the `|›` and `‖` dividers, tracking `lastPhysicalSections` so Settings picker overrides and physical `⌘`-drags never overwrite each other, and triggering items.
+- [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) — `UserDefaults`-backed observable preferences, `sectionOverrides`, and `lastPhysicalSections`.
+- [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) — Settings window UI.
+
+## Traps
+
+- **Never read `~/Library/Group Containers/com.apple.MenuBar` from the app bundle**: `sandboxd`, `tccd`, and `cfprefsd` block standalone app bundles from reading `~/Library/Group Containers/com.apple.MenuBar/Library/Preferences/com.apple.MenuBar.plist` (`kTCCServiceSystemPolicyAppDataDetailed` / `CFPDContainerSource` rejection). Instead, detect `⌘`-drags by monitoring `SectionController.ownAXFrames()` (`getpid()`, zero TCC permissions): because the macOS menu bar is right-anchored at Clock, dragging any icon across `|›` or `‖` shifts `toggle.minX` or `alwaysHidden.minX` by the icon's width.
+- **Ad-hoc `cdhash` changes on rebuild invalidate TCC Accessibility (`kTCCServiceAccessibility`)**: Recompiling an ad-hoc signed (`-`) binary changes its `cdhash`, causing `tccd` to log `Failed to match existing code requirement for subject com.acchuang.MenuTuck and service kTCCServiceAccessibility` even while System Settings still displays the toggle as ON. After rebuilding, toggle `MenuTuck` off and on in System Settings -> Privacy & Security -> Accessibility (or launch `/Applications/MenuTuck.app/Contents/MacOS/MenuTuck` from a trusted terminal).
+
+- **Always call `invalidate()` on `MBAssessmentModeAssertion` before re-activating**: Calling `activate(withConfiguration:)` a second time on an already-active `MBAssessmentModeAssertion` leaks the previous `VisibilityRestrictionXPCServer` session inside `MenuBarAgent`. Because `MenuBarAgent` takes the union of `allowedBundleIdentifiers` across active sessions, leaked sessions keep previously-visible apps permanently visible. Always call `previousAssertion?.invalidate()` and instantiate a new `MBAssessmentModeAssertion` when changing hidden bundle IDs.
+- **macOS 27 `MenuBarAgent` swallows `.leftMouseUp` during `⌘`-drags**: `MenuBarAgent` grabs the pointer during `performDrag`, so `NSEvent` global monitors do not reliably receive `.leftMouseUp`. Instead, monitor `~/Library/Group Containers/com.apple.MenuBar/Library/Preferences` for `TrailingItemPreferredPositions` writes (`Persisting trailing item positions`) and sync before collapsing.
+- **macOS 27 `NSStatusBarWindow.frame` is `(0, 0, width, 0)`**: Status items are hosted as FrontBoard scenes inside `MenuBarAgent` (`CGWindowID 7492`), so `item.button?.window?.frame` always returns `origin = (0, 0)`. Always read divider frames via `AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)` (`SectionController.ownAXFrames()`), which works without TCC Accessibility permission.
+- **Never set `divider.isVisible = false` to collapse a divider**: On macOS 27, toggling `isVisible = false` -> `true` removes the status item from `MenuBarAgent` and re-inserts it at the far left of all icons, destroying the divider layout. Instead, deactivate the horizontal `NSLayoutConstraint` on `button.window?.contentView` and set `divider.length = 0`.
+- **Launch from `/Applications/MenuTuck.app`**: `MenuBarAgent` is sandboxed and cannot read `Contents/Info.plist` inside `~/Project/...`. Installing to `/Applications/MenuTuck.app` (automated by `scripts/build-app.sh`) ensures `MenuBarAgent` resolves `CFBundleIdentifier = "com.acchuang.MenuTuck"` so `MBAssessmentModeAssertion` never hides MenuTuck's own status items.
+- **Code Signing**: Never sign with a revoked Apple Development certificate in Keychain. `syspolicyd` / Gatekeeper treats binaries signed with a revoked certificate as malware (`GK evaluateScanResult: 2`) and moves the `.app` bundle to `~/.Trash`. `scripts/build-app.sh` defaults to ad-hoc signing (`-`).
