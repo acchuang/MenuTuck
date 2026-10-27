@@ -333,10 +333,12 @@ final class SectionController: NSObject, ObservableObject {
         }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self, self.prefs.rehideOnOutsideClick, self.state != .collapsed else { return }
-            let mouseY = NSEvent.mouseLocation.y
-            let screenMaxY = NSScreen.main?.frame.maxY ?? 0
+            let mouse = NSEvent.mouseLocation
+            // The screen under the click, not NSScreen.main (the key-window screen).
+            let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
+            let screenMaxY = screen?.frame.maxY ?? 0
             // Collapse only when clicking below the menu bar band (~36 pt from top).
-            if screenMaxY - mouseY > 36 {
+            if screenMaxY - mouse.y > 36 {
                 DispatchQueue.main.async { self.set(.collapsed) }
             }
         }
