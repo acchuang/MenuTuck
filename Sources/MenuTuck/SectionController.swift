@@ -337,8 +337,11 @@ final class SectionController: NSObject, ObservableObject {
             // The screen under the click, not NSScreen.main (the key-window screen).
             let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
             let screenMaxY = screen?.frame.maxY ?? 0
-            // Collapse only when clicking below the menu bar band (~36 pt from top).
-            if screenMaxY - mouse.y > 36 {
+            // Collapse only when clicking below the menu bar. Its height varies (30 pt on an
+            // external display, 38 pt on a notched one); 36 is the floor for auto-hide, where
+            // visibleFrame reports no bar.
+            let band = max(36, screen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 0)
+            if screenMaxY - mouse.y > band {
                 DispatchQueue.main.async { self.set(.collapsed) }
             }
         }
