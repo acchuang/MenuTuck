@@ -227,6 +227,13 @@ private struct GeneralTab: View {
 
     var body: some View {
         Form {
+            if !MenuBarHider.shared.isSupported {
+                Section {
+                    Label("This macOS doesn't provide the menu bar API MenuTuck needs. Icons won't be hidden.", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
+            }
+
             Section("Startup") {
                 Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
                 if let loginError {
