@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.2)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.3)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -56,8 +56,9 @@
 
 ---
 
-## Unreleased (on `main`, not in v0.1.2)
+## What's new in v0.1.3
 
+- **Refreshed app icon.** High-contrast tactile graphite and warm cream icon (`16×16` through `1024×1024`).
 - **Outside-click re-hide uses the right screen.** It measures the menu bar on the screen you clicked, not the key-window screen, and sizes the bar from that screen's real height (30 pt external, 38 pt notched). Previously a fixed 36 pt band treated clicks on a notched bar as outside it.
 - **Menu bar items on a display left of the primary are detected.** The on-menu-bar filter used to drop their negative x positions.
 - **Settings warns when the private API is missing**, since the spacer fallback hides nothing on 27.2.
@@ -84,7 +85,7 @@ Measured on macOS 27.2 (build of current `main`, running instance, idle):
 
 | Metric | MenuTuck |
 | --- | --- |
-| App bundle / binary size | `1.8 MB` / `630 KB` |
+| App bundle / binary size | `~910 KB` / `630 KB` |
 | Memory (`phys_footprint`) | `~65 MB` |
 | Idle CPU (`top`) | `~0.7%` |
 | Third-party dependencies | None (Apple frameworks only) |

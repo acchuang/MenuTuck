@@ -3,7 +3,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 
-/// Renders the MenuTuck macOS app icon at a given pixel dimension.
+/// Renders the MenuTuck macOS app icon (Option C: macOS Tactile Graphite & Rounded Bar) at a given pixel dimension.
 func renderIcon(size: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(
         bitmapDataPlanes: nil,
@@ -23,22 +23,29 @@ func renderIcon(size: Int) -> NSBitmapImageRep {
     let ctx = NSGraphicsContext(bitmapImageRep: rep)!
     NSGraphicsContext.current = ctx
     let cg = ctx.cgContext
+    cg.interpolationQuality = .high
+    cg.setShouldAntialias(true)
+
     let s = CGFloat(size) / 1024.0
     cg.scaleBy(x: s, y: s)
 
-    // 1. Apple HIG macOS squircle geometry (824x824 centered in 1024x1024).
+    // 1. Apple HIG macOS squircle geometry (824x824 centered in 1024x1024 transparent canvas).
     let squircleRect = NSRect(x: 100, y: 100, width: 824, height: 824)
     let cornerRadius: CGFloat = 185.0
     let squirclePath = NSBezierPath(roundedRect: squircleRect, xRadius: cornerRadius, yRadius: cornerRadius)
 
-    // Outer ambient shadow
+    let black = NSColor(srgbRed: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+    let cutoutDark = NSColor(srgbRed: 0.08, green: 0.08, blue: 0.09, alpha: 1.0)
+    let cream = NSColor(srgbRed: 244.0 / 255.0, green: 242.0 / 255.0, blue: 235.0 / 255.0, alpha: 1.0)
+
+    // Outer ambient shadow (standard macOS Dock elevation)
     cg.saveGState()
     let shadow = NSShadow()
-    shadow.shadowOffset = NSSize(width: 0, height: -26)
-    shadow.shadowBlurRadius = 48
-    shadow.shadowColor = NSColor(calibratedWhite: 0.0, alpha: 0.48)
+    shadow.shadowOffset = NSSize(width: 0, height: -24)
+    shadow.shadowBlurRadius = 44
+    shadow.shadowColor = NSColor(calibratedWhite: 0.0, alpha: 0.42)
     shadow.set()
-    NSColor(calibratedRed: 0.07, green: 0.09, blue: 0.14, alpha: 1.0).setFill()
+    black.setFill()
     squirclePath.fill()
     cg.restoreGState()
 
@@ -46,149 +53,84 @@ func renderIcon(size: Int) -> NSBitmapImageRep {
     cg.saveGState()
     squirclePath.addClip()
 
-    // 2. Background gradient: deep midnight slate to rich indigo-navy
-    let bgGradient = NSGradient(colorsAndLocations:
-        (NSColor(calibratedRed: 0.06, green: 0.08, blue: 0.14, alpha: 1.0), 0.0),
-        (NSColor(calibratedRed: 0.09, green: 0.13, blue: 0.22, alpha: 1.0), 0.55),
-        (NSColor(calibratedRed: 0.13, green: 0.20, blue: 0.34, alpha: 1.0), 1.0)
+    // Subtle tactile dark graphite gradient for macOS Dock depth
+    let bgGradient = NSGradient(
+        starting: NSColor(srgbRed: 0.14, green: 0.14, blue: 0.16, alpha: 1.0),
+        ending: NSColor(srgbRed: 0.03, green: 0.03, blue: 0.04, alpha: 1.0)
     )!
-    bgGradient.draw(in: squircleRect, angle: 115)
+    bgGradient.draw(in: squircleRect, angle: -90)
 
-    // Subtle radial cyan glow behind the divider/chevron focal point
-    let glowCenter = NSPoint(x: 520, y: 540)
-    let glowGradient = NSGradient(
-        starting: NSColor(calibratedRed: 0.20, green: 0.78, blue: 0.96, alpha: 0.28),
-        ending: NSColor(calibratedRed: 0.20, green: 0.78, blue: 0.96, alpha: 0.0)
-    )!
-    glowGradient.draw(fromCenter: glowCenter, radius: 10, toCenter: glowCenter, radius: 380, options: [])
+    // Geometry constants
+    let barRect = NSRect(x: 244.0, y: 393.5, width: 536.0, height: 99.0)
+    let barTopY = barRect.maxY          // 492.5
+    let barCenterY = barRect.midY       // 443.0
+    let gap: CGFloat = 11.5             // Uniform separation / cutout stroke width
+    let circleRadius: CGFloat = 71.5    // All three circular icons share the same radius
 
-    // 3. Elevated translucent macOS menu bar strip across the icon
-    let barRect = NSRect(x: 156, y: 404, width: 712, height: 216)
-    let barPath = NSBezierPath(roundedRect: barRect, xRadius: 56, yRadius: 56)
+    // 2. Horizontal rounded menu bar strip
+    cream.setFill()
+    NSBezierPath(roundedRect: barRect, xRadius: 22.0, yRadius: 22.0).fill()
 
+    // 3. Left circle (fully above the bar, separated by `gap`)
+    let leftCenter = NSPoint(x: 341.5, y: barTopY + gap + circleRadius)
+    let leftRect = NSRect(
+        x: leftCenter.x - circleRadius,
+        y: leftCenter.y - circleRadius,
+        width: circleRadius * 2,
+        height: circleRadius * 2
+    )
+    cream.setFill()
+    NSBezierPath(ovalIn: leftRect).fill()
+
+    // 4. Right circle dome (tucked behind the bar, clipped cleanly at `barTopY + gap`)
+    let rightCenter = NSPoint(x: 682.5, y: 486.3)
+    let rightRect = NSRect(
+        x: rightCenter.x - circleRadius,
+        y: rightCenter.y - circleRadius,
+        width: circleRadius * 2,
+        height: circleRadius * 2
+    )
     cg.saveGState()
-    let barShadow = NSShadow()
-    barShadow.shadowOffset = NSSize(width: 0, height: -18)
-    barShadow.shadowBlurRadius = 36
-    barShadow.shadowColor = NSColor(calibratedWhite: 0.0, alpha: 0.45)
-    barShadow.set()
-    NSColor(calibratedRed: 0.12, green: 0.16, blue: 0.26, alpha: 0.92).setFill()
-    barPath.fill()
+    NSRect(x: 100, y: barTopY + gap, width: 824, height: 500).clip()
+    cream.setFill()
+    NSBezierPath(ovalIn: rightRect).fill()
     cg.restoreGState()
 
-    // Glass fill on the menu bar pill
-    let barGlass = NSGradient(colorsAndLocations:
-        (NSColor(calibratedWhite: 1.0, alpha: 0.16), 0.0),
-        (NSColor(calibratedWhite: 1.0, alpha: 0.06), 1.0)
-    )!
-    barGlass.draw(in: barPath, angle: -90)
+    // 5. Middle circle (half-tucked overlapping the bar with a clean cutout ring)
+    let midCenter = NSPoint(x: 512.0, y: 522.0)
+    let midOuterRadius = circleRadius + gap
+    let midOuterRect = NSRect(
+        x: midCenter.x - midOuterRadius,
+        y: midCenter.y - midOuterRadius,
+        width: midOuterRadius * 2,
+        height: midOuterRadius * 2
+    )
+    cutoutDark.setFill()
+    NSBezierPath(ovalIn: midOuterRect).fill()
 
-    // Left (tucked/hidden) zone tint inside the bar
-    cg.saveGState()
-    barPath.addClip()
-    let hiddenZoneRect = NSRect(x: 156, y: 404, width: 334, height: 216)
-    NSColor(calibratedRed: 0.04, green: 0.06, blue: 0.11, alpha: 0.48).setFill()
-    hiddenZoneRect.fill()
-    cg.restoreGState()
+    let midInnerRect = NSRect(
+        x: midCenter.x - circleRadius,
+        y: midCenter.y - circleRadius,
+        width: circleRadius * 2,
+        height: circleRadius * 2
+    )
+    cream.setFill()
+    NSBezierPath(ovalIn: midInnerRect).fill()
 
-    // Subtle glass border on the menu bar pill
-    NSColor(calibratedWhite: 1.0, alpha: 0.22).setStroke()
-    barPath.lineWidth = 3.0
-    barPath.stroke()
+    // 6. Right-pointing rounded chevron `>` inside the right side of the bar
+    let chevron = NSBezierPath()
+    chevron.move(to: NSPoint(x: 678.3, y: barCenterY + 30.0))
+    chevron.line(to: NSPoint(x: 708.3, y: barCenterY))
+    chevron.line(to: NSPoint(x: 678.3, y: barCenterY - 30.0))
+    chevron.lineCapStyle = .round
+    chevron.lineJoinStyle = .round
+    chevron.lineWidth = 16.0
+    cutoutDark.setStroke()
+    chevron.stroke()
 
-    // 4. Left side: "Tucked / Hidden" ghost icons (faded & dashed to show they are hidden)
-    let ghostColor = NSColor(calibratedRed: 0.56, green: 0.68, blue: 0.86, alpha: 0.34)
-    ghostColor.setFill()
-    ghostColor.setStroke()
-
-    // Ghost icon 1: circle with inner dot
-    let ghost1 = NSRect(x: 212, y: 476, width: 72, height: 72)
-    let ghost1Path = NSBezierPath(ovalIn: ghost1)
-    ghost1Path.lineWidth = 5.0
-    let dashPattern: [CGFloat] = [10.0, 7.0]
-    ghost1Path.setLineDash(dashPattern, count: 2, phase: 0)
-    ghost1Path.stroke()
-    NSBezierPath(ovalIn: ghost1.insetBy(dx: 22, dy: 22)).fill()
-
-    // Ghost icon 2: rounded square app tile (semi-faded, sliding behind divider)
-    let ghost2 = NSRect(x: 324, y: 476, width: 72, height: 72)
-    let ghost2Path = NSBezierPath(roundedRect: ghost2, xRadius: 18, yRadius: 18)
-    NSColor(calibratedRed: 0.56, green: 0.68, blue: 0.86, alpha: 0.22).setFill()
-    ghost2Path.fill()
-    ghost2Path.lineWidth = 5.0
-    ghost2Path.setLineDash(dashPattern, count: 2, phase: 0)
-    ghostColor.setStroke()
-    ghost2Path.stroke()
-
-    // 5. Center focal element: Glowing cyan/sky divider bar `|` + chevron pill `‹`
-    let dividerX: CGFloat = 466
-    let dividerRect = NSRect(x: dividerX - 8, y: 364, width: 16, height: 296)
-    let dividerPath = NSBezierPath(roundedRect: dividerRect, xRadius: 8, yRadius: 8)
-
-    cg.saveGState()
-    let divGlow = NSShadow()
-    divGlow.shadowOffset = .zero
-    divGlow.shadowBlurRadius = 24
-    divGlow.shadowColor = NSColor(calibratedRed: 0.22, green: 0.84, blue: 1.0, alpha: 0.85)
-    divGlow.set()
-    let divGrad = NSGradient(
-        starting: NSColor(calibratedRed: 0.42, green: 0.93, blue: 1.0, alpha: 1.0),
-        ending: NSColor(calibratedRed: 0.16, green: 0.64, blue: 0.98, alpha: 1.0)
-    )!
-    divGrad.draw(in: dividerPath, angle: -90)
-    cg.restoreGState()
-
-    // Highlighted toggle chevron badge `<` next to the divider
-    let badgeRect = NSRect(x: 508, y: 444, width: 136, height: 136)
-    let badgePath = NSBezierPath(roundedRect: badgeRect, xRadius: 36, yRadius: 36)
-    let badgeGrad = NSGradient(
-        starting: NSColor(calibratedRed: 0.24, green: 0.82, blue: 0.98, alpha: 1.0),
-        ending: NSColor(calibratedRed: 0.14, green: 0.52, blue: 0.94, alpha: 1.0)
-    )!
-    cg.saveGState()
-    let badgeShadow = NSShadow()
-    badgeShadow.shadowOffset = NSSize(width: 0, height: -10)
-    badgeShadow.shadowBlurRadius = 22
-    badgeShadow.shadowColor = NSColor(calibratedRed: 0.08, green: 0.42, blue: 0.88, alpha: 0.55)
-    badgeShadow.set()
-    badgeGrad.draw(in: badgePath, angle: -90)
-    cg.restoreGState()
-
-    // Crisp white left-pointing chevron `<` inside the badge
-    let chev = NSBezierPath()
-    chev.move(to: NSPoint(x: 592, y: 548))
-    chev.line(to: NSPoint(x: 554, y: 512))
-    chev.line(to: NSPoint(x: 592, y: 476))
-    chev.lineCapStyle = .round
-    chev.lineJoinStyle = .round
-    chev.lineWidth = 16.0
-    NSColor.white.setStroke()
-    chev.stroke()
-
-    // 6. Right side: Crisp visible status item sliders/icons
-    let activeWhite = NSColor(calibratedWhite: 0.98, alpha: 0.95)
-    activeWhite.setFill()
-    activeWhite.setStroke()
-
-    // Visible status icon: two clean Control-Center style toggle pills
-    let pillTop = NSRect(x: 688, y: 522, width: 118, height: 36)
-    let pillBot = NSRect(x: 688, y: 466, width: 118, height: 36)
-    NSColor(calibratedWhite: 1.0, alpha: 0.22).setFill()
-    NSBezierPath(roundedRect: pillTop, xRadius: 18, yRadius: 18).fill()
-    NSBezierPath(roundedRect: pillBot, xRadius: 18, yRadius: 18).fill()
-
-    activeWhite.setFill()
-    NSBezierPath(ovalIn: NSRect(x: 772, y: 525, width: 30, height: 30)).fill()
-    NSBezierPath(ovalIn: NSRect(x: 692, y: 469, width: 30, height: 30)).fill()
-
-    // 7. Subtle top-bottom section indicator pills for visual balance
-    let topIndicator = NSRect(x: 412, y: 720, width: 200, height: 14)
-    NSColor(calibratedWhite: 1.0, alpha: 0.14).setFill()
-    NSBezierPath(roundedRect: topIndicator, xRadius: 7, yRadius: 7).fill()
-
-    // Inner squircle specular border
+    // Inner specular border
     NSColor(calibratedWhite: 1.0, alpha: 0.18).setStroke()
-    squirclePath.lineWidth = 4.0
+    squirclePath.lineWidth = 3.0
     squirclePath.stroke()
 
     cg.restoreGState()
