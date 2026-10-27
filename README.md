@@ -80,13 +80,13 @@
 
 ## MenuTuck at a glance
 
-Measured on macOS 27.0.1 (running instance, idle):
+Measured on macOS 27.2 (build of current `main`, running instance, idle):
 
 | Metric | MenuTuck |
 | --- | --- |
-| App bundle / binary size | `1.8 MB` / `600 KB` |
-| Memory (`phys_footprint`) | `~82 MB` |
-| Idle CPU (`top`) | `~0.4%` |
+| App bundle / binary size | `1.8 MB` / `630 KB` |
+| Memory (`phys_footprint`) | `~65 MB` |
+| Idle CPU (`top`) | `~0.7%` |
 | Third-party dependencies | None (Apple frameworks only) |
 | Screen Recording permission | Not requested |
 | License / cost | MIT, free |
