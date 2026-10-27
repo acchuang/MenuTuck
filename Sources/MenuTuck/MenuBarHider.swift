@@ -13,7 +13,7 @@ import os
 }
 
 /// Uses the private `MenuBarClientCore` visibility restriction assertion to hide and reveal
-/// menu bar icons in place based on MenuTuck's divider sections. Tested on macOS 27.0.1 only.
+/// menu bar icons in place based on MenuTuck's divider sections. Tested on macOS 27.0.1 and 27.2 only.
 final class MenuBarHider {
     static let shared = MenuBarHider()
 
