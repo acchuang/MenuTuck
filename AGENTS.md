@@ -22,6 +22,9 @@ SKIP_INSTALL=1 ./scripts/build-app.sh
 # Build build/MenuTuck.dmg and build/MenuTuck-macOS.zip (never installs; prints SHA-256)
 ./scripts/package.sh
 
+# Run the unit tests (only isOnMenuBar is covered so far)
+swift test
+
 # Regenerate Resources/AppIcon.icns and Resources/AppIcon-1024.png
 swift scripts/generate-icon.swift
 
@@ -51,5 +54,7 @@ open /Applications/MenuTuck.app
 - **Never set `divider.isVisible = false` to collapse a divider**: On macOS 27, toggling `isVisible = false` -> `true` removes the status item from `MenuBarAgent` and re-inserts it at the far left of all icons, destroying the divider layout. Instead, deactivate the horizontal `NSLayoutConstraint` on `button.window?.contentView` and set `divider.length = 0`.
 - **Launch from `/Applications/MenuTuck.app`**: `MenuBarAgent` is sandboxed and cannot read `Contents/Info.plist` inside `~/Project/...`. Installing to `/Applications/MenuTuck.app` (automated by `scripts/build-app.sh`) ensures `MenuBarAgent` resolves `CFBundleIdentifier = "com.acchuang.MenuTuck"` so `MBAssessmentModeAssertion` never hides MenuTuck's own status items.
 - **`MenuBarHider` hardcodes `MBSystemItemIdentifier` `0...15` and `4 = keyboard`**: Any system item with an ID above 15 on a newer macOS is not in the allow list and gets hidden. The enum lives only in the dyld shared cache on macOS 27, so it was never read directly; the values are unverified beyond macOS 27.0.1.
-- **`outsideClickMonitor` measures against the screen under the click**: `NSEvent.mouseLocation` is global but `NSScreen.main` is the key-window screen, so the monitor picks the screen whose frame contains the click and only falls back to `main`. The dev machine has two displays with aligned top edges (same `maxY`), so the old and new code behave identically there; staggered arrangements are untested.
+- **`outsideClickMonitor` measures against the screen under the click**: `NSEvent.mouseLocation` is global but `NSScreen.main` is the key-window screen, so the monitor picks the screen whose frame contains the click and only falls back to `main`. The band below the bar is `max(36, frame.maxY - visibleFrame.maxY)` (30 pt external, 38 pt notched; the 36 floor covers auto-hide, where `visibleFrame` reports no bar). Verified live on the dev machine (30 pt external + 38 pt notched, aligned top edges): a click 37 pt down on the notched display keeps it expanded, 60 pt collapses. Staggered arrangements are untested.
+- **`isOnMenuBar` must accept negative x**: a display left of the primary reports status items at negative x (seen: `‖` at x=-698 on the built-in). The filter only needs to reject parked frames (large y) and unplaced ones at the origin, so it tests `abs(minX) > 5`.
+- **Spacer fallback hides only Always Hidden**: `apply()` never lengthens `toggleItem`, and `‖` is left of the Hidden section, so collapsing the `10,000 pt` spacer pushes off only Always Hidden. Reproduced on 27.2 by forcing `isSupported` false. Fixing it needs a third spacer item between `‖` and the toggle.
 - **Code Signing**: Never sign with a revoked Apple Development certificate in Keychain. `syspolicyd` / Gatekeeper treats binaries signed with a revoked certificate as malware (`GK evaluateScanResult: 2`) and moves the `.app` bundle to `~/.Trash`. `scripts/build-app.sh` defaults to ad-hoc signing (`-`); for local rebuilds that keep the Accessibility grant, pass `SIGN_IDENTITY` as shown under Build & Run. That cert exists only on the maintainer's machine; check `security find-identity -p codesigning` for it. Released builds stay ad-hoc.
