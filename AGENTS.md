@@ -42,6 +42,7 @@ open /Applications/MenuTuck.app
 - [`Sources/MenuTuck/ItemsModel.swift`](Sources/MenuTuck/ItemsModel.swift) — Observable state for scanning, classifying items relative to the `|›` and `‖` dividers, tracking `lastPhysicalSections` so Settings picker overrides and physical `⌘`-drags never overwrite each other, and triggering items.
 - [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) — `UserDefaults`-backed observable preferences, `sectionOverrides`, and `lastPhysicalSections`.
 - [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) — Settings window UI. The General tab shows a warning when `MenuBarHider.isSupported` is false.
+- [`scripts/generate-icon.swift`](scripts/generate-icon.swift) — CoreGraphics vector icon generator (`16×16` to `1024×1024`) producing `Resources/AppIcon.icns` and `Resources/AppIcon-1024.png`.
 - [`Tests/MenuTuckTests`](Tests/MenuTuckTests) — Unit tests (`isOnMenuBar` only).
 
 ## Traps

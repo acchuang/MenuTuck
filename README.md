@@ -130,6 +130,7 @@ Open an issue: [github.com/acchuang/MenuTuck/issues](https://github.com/acchuang
 | [`Sources/MenuTuck/ItemsModel.swift`](Sources/MenuTuck/ItemsModel.swift) | Classifies items relative to `|›` and `‖` and reconciles live `⌘`-drags with Settings overrides. |
 | [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) | `UserDefaults`-backed observable settings and per-app section overrides. |
 | [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) | Settings window and its SwiftUI interface (*Menu Bar Items* and *General* tabs). |
+| [`scripts/generate-icon.swift`](scripts/generate-icon.swift) | CoreGraphics generator for [`Resources/AppIcon.icns`](Resources/AppIcon.icns) and [`Resources/AppIcon-1024.png`](Resources/AppIcon-1024.png) (`16×16`–`1024×1024`). |
 | [`Tests/MenuTuckTests`](Tests/MenuTuckTests) | Unit tests (the on-menu-bar filter only so far). |
 
 ---
