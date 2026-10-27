@@ -41,7 +41,7 @@
   - **`‖` (Always-Hidden Divider)**: Sits between the **Always Hidden** section (to its left) and the **Hidden** section (to its right).
 - **Native In-Place Hiding (`MenuBarAgent`, tested on macOS 27.0.1 and 27.2)**:
   - Uses `MenuBarClientCore` (`MBAssessmentModeAssertion`) to hide and restore third-party menu bar icons in place, with no Screen Recording permission.
-  - Falls back to expandable `NSStatusItem` spacers (`10,000 pt`) when that API is unavailable (untested on 14–26; it hides only the **Always Hidden** section, see below).
+  - Falls back to expandable `NSStatusItem` spacers (`10,000 pt`) when that API is unavailable (untested on 14–26; it does not hide anything on 27.2, see below).
 - **Two Ways to Organize Icons**:
   - **In the Menu Bar**: Hold `⌘` and drag any icon to the left of `|‹` / `|›` to hide it, or to the left of `‖` to always hide it.
   - **In Settings (`Menu Bar Items` tab)**: Assign any running menu bar app to **Visible**, **Hidden**, or **Always Hidden** with the section picker, or click **Click** to trigger its menu bar item remotely.
@@ -97,7 +97,7 @@ Other menu bar managers worth a look. Licenses as listed by each project; compar
 
 - **Private API.** In-place hiding uses Apple's private `MenuBarClientCore` framework. A macOS update can change or remove it. MenuTuck checks that the expected selectors exist and falls back to the spacer path if not, but that check can't catch every change.
 - **Older macOS untested.** Only macOS 27.0.1 and 27.2 have been tried. I don't know which of macOS 14–26 ship `MenuBarClientCore`, or whether the `10,000 pt` spacer fallback works on them.
-- **Spacer fallback hides only Always Hidden.** Without the private API, collapsing expands `‖` to `10,000 pt`, which pushes off only the icons left of it. Icons in **Hidden** stay visible. I reproduced this on 27.2 by forcing the fallback. A real fix needs a third spacer item, which I haven't built.
+- **Spacer fallback doesn't hide on 27.2.** Without the private API, MenuTuck widens a status item to `10,000 pt` to push icons off-screen. On 27.2 (fallback forced on, with the spacer on `‖` and again on the toggle) the item reports a clamped 5002 pt frame and the icons next to it don't move, so nothing is hidden. I don't know whether 14–26 behave differently, so the fallback is unfixed.
 - **Hardcoded system items.** The hide list allows system menu bar items `0...15` and assumes `4` is the keyboard item. If a future macOS adds an item with a higher ID, MenuTuck may hide it.
 - **Multiple displays.** "Re-hide on outside click" measures the menu bar against the screen you clicked on. The bar height comes from the screen itself (30 pt external, 38 pt notched), with a 36 pt floor for auto-hide. Verified on a 30 pt external plus a 38 pt notched display with aligned top edges; staggered arrangements are untested.
 - **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
