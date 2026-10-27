@@ -56,6 +56,14 @@
 
 ---
 
+## Unreleased (on `main`, not in v0.1.2)
+
+- **Outside-click re-hide uses the right screen.** It measures the menu bar on the screen you clicked, not the key-window screen, and sizes the bar from that screen's real height (30 pt external, 38 pt notched). Previously a fixed 36 pt band treated clicks on a notched bar as outside it.
+- **Menu bar items on a display left of the primary are detected.** The on-menu-bar filter used to drop their negative x positions.
+- **Settings warns when the private API is missing**, since the spacer fallback hides nothing on 27.2.
+- **Scanner fix and cleanup.** A malformed bundle ID in the scanner's exclusion list is fixed, and the unused `ItemMover` is deleted.
+- **Unit tests.** `swift test` covers the on-menu-bar filter.
+
 ## What's new in v0.1.2
 
 - **No more repeated Accessibility windows.** Without the permission, MenuTuck used to open Settings and the system prompt on every menu bar layout change. It now does so once per launch.
@@ -99,7 +107,7 @@ Other menu bar managers worth a look. Licenses as listed by each project; compar
 - **Older macOS untested.** Only macOS 27.0.1 and 27.2 have been tried. I don't know which of macOS 14–26 ship `MenuBarClientCore`, or whether the `10,000 pt` spacer fallback works on them.
 - **Spacer fallback doesn't hide on 27.2.** Without the private API, MenuTuck widens a status item to `10,000 pt` to push icons off-screen. On 27.2 (fallback forced on, with the spacer on `‖` and again on the toggle) the item reports a clamped 5002 pt frame and the icons next to it don't move, so nothing is hidden. I don't know whether 14–26 behave differently, so the fallback is unfixed. Settings > General shows a warning when the private API is missing.
 - **Hardcoded system items.** The hide list allows system menu bar items `0...15` and assumes `4` is the keyboard item. If a future macOS adds an item with a higher ID, MenuTuck may hide it.
-- **Multiple displays.** "Re-hide on outside click" measures the menu bar against the screen you clicked on. The bar height comes from the screen itself (30 pt external, 38 pt notched), with a 36 pt floor for auto-hide. Verified on a 30 pt external plus a 38 pt notched display with aligned top edges; staggered arrangements are untested.
+- **Multiple displays.** "Re-hide on outside click" measures the menu bar against the screen you clicked on. The bar height comes from the screen itself (30 pt external, 38 pt notched), with a 36 pt floor for auto-hide. Items on a display left of the primary (negative x) are accepted by the scanner, but I haven't run that layout either. Verified on a 30 pt external plus a 38 pt notched display with aligned top edges; staggered arrangements are untested.
 - **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
 - **Not notarized.** Ad-hoc signed, hence the `xattr -cr` step and the Accessibility re-grant after each update.
 
@@ -120,7 +128,8 @@ Open an issue: [github.com/acchuang/MenuTuck/issues](https://github.com/acchuang
 | [`Sources/MenuTuck/MenuBarScanner.swift`](Sources/MenuTuck/MenuBarScanner.swift) | Parallel `AXUIElement` (`kAXExtrasMenuBarAttribute`) scanner and action dispatcher. |
 | [`Sources/MenuTuck/ItemsModel.swift`](Sources/MenuTuck/ItemsModel.swift) | Classifies items relative to `|›` and `‖` and reconciles live `⌘`-drags with Settings overrides. |
 | [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) | `UserDefaults`-backed observable settings and per-app section overrides. |
-| [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) | SwiftUI Settings interface (*Menu Bar Items* and *General* tabs). |
+| [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) | Settings window and its SwiftUI interface (*Menu Bar Items* and *General* tabs). |
+| [`Tests/MenuTuckTests`](Tests/MenuTuckTests) | Unit tests (the on-menu-bar filter only so far). |
 
 ---
 
@@ -137,6 +146,9 @@ cd MenuTuck
 
 # Build MenuTuck.dmg and MenuTuck-macOS.zip into build/ (prints SHA-256)
 ./scripts/package.sh
+
+# Run the unit tests
+swift test
 
 # Optional: regenerate Resources/AppIcon.icns from CoreGraphics script
 swift scripts/generate-icon.swift
