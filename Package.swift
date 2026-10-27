@@ -8,6 +8,11 @@ let package = Package(
         .executableTarget(
             name: "MenuTuck",
             path: "Sources/MenuTuck"
+        ),
+        .testTarget(
+            name: "MenuTuckTests",
+            dependencies: ["MenuTuck"],
+            path: "Tests/MenuTuckTests"
         )
     ]
 )

@@ -2,8 +2,10 @@ import AppKit
 import ApplicationServices
 
 extension CGRect {
-    /// True for frames materialized on the menu bar, not parked off-screen (e.g. y=1770).
-    var isOnMenuBar: Bool { minY < 40 && minX > 5 }
+    /// True for frames materialized on the menu bar, not parked off-screen (e.g. y=1770) or
+    /// unplaced at the origin. A display left of the primary has negative x, so test distance
+    /// from 0 rather than a lower bound.
+    var isOnMenuBar: Bool { minY < 40 && abs(minX) > 5 }
 }
 
 /// One status item that belongs to another app.

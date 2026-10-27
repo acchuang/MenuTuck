@@ -290,7 +290,7 @@ final class SectionController: NSObject, ObservableObject {
     private static func globalFrame(of item: NSStatusItem) -> CGRect? {
         guard let window = item.button?.window else { return nil }
         let f = window.frame
-        guard f.minX > 5, f.height > 0 else { return nil }
+        guard abs(f.minX) > 5, f.height > 0 else { return nil }
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         return CGRect(x: f.minX, y: primaryHeight - f.maxY, width: f.width, height: f.height)
     }
