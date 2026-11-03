@@ -23,6 +23,24 @@ enum MenuSection: String, CaseIterable, Identifiable {
         case .alwaysHidden: return "lock"
         }
     }
+
+    /// Short spatial hint relating this section to the physical menu bar dividers.
+    var spatialHint: String {
+        switch self {
+        case .visible: return "Right of |›"
+        case .hidden: return "Left of |›"
+        case .alwaysHidden: return "Left of ‖"
+        }
+    }
+
+    /// The divider glyph associated with this section in the menu bar.
+    var dividerGlyph: String {
+        switch self {
+        case .visible: return "|›"
+        case .hidden: return "|‹"
+        case .alwaysHidden: return "‖"
+        }
+    }
 }
 
 enum BarState: String, CaseIterable, Identifiable {
@@ -37,7 +55,7 @@ enum BarState: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .collapsed: return "Hidden"
+        case .collapsed: return "Collapsed"
         case .expanded: return "Expanded"
         case .showAll: return "Show All"
         }

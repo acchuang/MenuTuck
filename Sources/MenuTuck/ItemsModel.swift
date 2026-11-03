@@ -8,13 +8,19 @@ final class ItemsModel: ObservableObject {
     @Published private(set) var isTrusted = AXIsProcessTrusted()
     @Published var searchQuery = ""
     @Published var lastError: String?
+    @Published private(set) var didJustSync = false
 
     private weak var controller: SectionController?
     private let prefs = Preferences.shared
     private var cachedByID: [String: MenuBarItem] = [:]
+    private var syncFeedbackWorkItem: DispatchWorkItem?
 
     init(controller: SectionController) {
         self.controller = controller
+    }
+
+    func dismissError() {
+        lastError = nil
     }
 
     func items(in section: MenuSection) -> [MenuBarItem] {
@@ -58,9 +64,9 @@ final class ItemsModel: ObservableObject {
             let prevPhysical = prefs.lastPhysicalSection(for: key)
             prefs.setLastPhysicalSection(detected, for: key)
 
-            if detected != .visible
-                || prefs.sectionOverride(for: key) == nil
-                || (prevPhysical != nil && prevPhysical != detected) {
+            let movedPhysically = (prevPhysical == nil && detected != .visible)
+                || (prevPhysical != nil && prevPhysical != detected)
+            if movedPhysically || prefs.sectionOverride(for: key) == nil {
                 prefs.setSectionOverride(detected, for: key)
                 for idx in items.indices where items[idx].storageKey == key {
                     items[idx].section = detected
@@ -71,7 +77,7 @@ final class ItemsModel: ObservableObject {
     }
 
     /// Scans menu bar items and classifies them relative to MenuTuck's dividers.
-    /// - Parameter syncFromDividers: When `true` (when clicking "Sync Dividers"), forces all saved
+    /// - Parameter syncFromDividers: When `true` (when clicking "Rescan Menu Bar"), forces all saved
     ///   section overrides to match the current physical divider positions.
     func refresh(syncFromDividers: Bool = false) {
         checkTrust()
@@ -80,9 +86,10 @@ final class ItemsModel: ObservableObject {
         let ahEnabled = prefs.alwaysHiddenEnabled
         isBusy = true
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let found = MenuBarScanner.scan()
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
                 let runningPIDs = Set(NSWorkspace.shared.runningApplications.map(\.processIdentifier))
                 self.cachedByID = self.cachedByID.filter { runningPIDs.contains($0.value.pid) }
                 for item in found {
@@ -101,12 +108,13 @@ final class ItemsModel: ObservableObject {
                         let prevPhysical = self.prefs.lastPhysicalSection(for: key)
                         self.prefs.setLastPhysicalSection(detected, for: key)
 
-                        // Rule 1: Any item physically to the left of `|›` or `‖` on screen is ALWAYS in that hidden section.
-                        // Rule 2: If an item moved from left of `|›` to right of `|›` (prevPhysical != detected), update it.
-                        if detected != .visible
+                        // Update override when an item physically crossed a divider, on first non-visible detection,
+                        // or when the user explicitly requests a full divider sync.
+                        let movedPhysically = (prevPhysical == nil && detected != .visible)
+                            || (prevPhysical != nil && prevPhysical != detected)
+                        if movedPhysically
                             || syncFromDividers
-                            || self.prefs.sectionOverride(for: key) == nil
-                            || (prevPhysical != nil && prevPhysical != detected) {
+                            || self.prefs.sectionOverride(for: key) == nil {
                             item.section = detected
                             self.prefs.setSectionOverride(detected, for: key)
                         } else if let saved = self.prefs.sectionOverride(for: key) {
@@ -122,6 +130,15 @@ final class ItemsModel: ObservableObject {
                     return item
                 }
                 self.isBusy = false
+                if syncFromDividers {
+                    self.syncFeedbackWorkItem?.cancel()
+                    self.didJustSync = true
+                    let work = DispatchWorkItem { [weak self] in
+                        self?.didJustSync = false
+                    }
+                    self.syncFeedbackWorkItem = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: work)
+                }
                 self.controller?.apply()
             }
         }
@@ -180,12 +197,6 @@ final class ItemsModel: ObservableObject {
             cachedByID[items[idx].id]?.section = target
         }
 
-        if target == .hidden, controller?.state != .collapsed {
-            controller?.set(.collapsed)
-        } else if target == .alwaysHidden, controller?.state == .showAll {
-            controller?.set(.collapsed)
-        } else {
-            controller?.apply()
-        }
+        controller?.apply()
     }
 }

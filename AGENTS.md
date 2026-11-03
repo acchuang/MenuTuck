@@ -22,7 +22,7 @@ SKIP_INSTALL=1 ./scripts/build-app.sh
 # Build build/MenuTuck.dmg and build/MenuTuck-macOS.zip (never installs; prints SHA-256)
 ./scripts/package.sh
 
-# Run the unit tests (only isOnMenuBar is covered so far)
+# Run the unit tests (isOnMenuBar and BarState/MenuSection label checks)
 swift test
 
 # Regenerate Resources/AppIcon.icns and Resources/AppIcon-1024.png
@@ -43,7 +43,7 @@ open /Applications/MenuTuck.app
 - [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) — `UserDefaults`-backed observable preferences, `sectionOverrides`, and `lastPhysicalSections`.
 - [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) — Settings window UI. The General tab shows a warning when `MenuBarHider.isSupported` is false.
 - [`scripts/generate-icon.swift`](scripts/generate-icon.swift) — CoreGraphics vector icon generator (`16×16` to `1024×1024`) producing `Resources/AppIcon.icns` and `Resources/AppIcon-1024.png`.
-- [`Tests/MenuTuckTests`](Tests/MenuTuckTests) — Unit tests (`isOnMenuBar` only).
+- [`Tests/MenuTuckTests`](Tests/MenuTuckTests) — Unit tests (`isOnMenuBar` and `BarState`/`MenuSection` label separation).
 
 ## Traps
 

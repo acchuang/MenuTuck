@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.3)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.4)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -44,7 +44,7 @@
   - Falls back to expandable `NSStatusItem` spacers (`10,000 pt`) when that API is unavailable (untested on 14–26; it does not hide anything on 27.2, see below).
 - **Two Ways to Organize Icons**:
   - **In the Menu Bar**: Hold `⌘` and drag any icon to the left of `|‹` / `|›` to hide it, or to the left of `‖` to always hide it.
-  - **In Settings (`Menu Bar Items` tab)**: Assign any running menu bar app to **Visible**, **Hidden**, or **Always Hidden** with the section picker, or click **Click** to trigger its menu bar item remotely.
+  - **In Settings (`Menu Bar Items` tab)**: Assign any running menu bar app to **Visible**, **Hidden**, or **Always Hidden** with the section picker (accompanied by a live `[Always Hidden] ‖ [Hidden] |› [Visible]` layout bar), or click **Open Menu** to trigger its menu bar item remotely.
 - **Quick Controls**:
   - **Left-click `|‹` / `|›`**: Toggle Hidden icons.
   - **Option-click (`⌥`-click) `|‹` / `|›` or click `‖`**: Show All icons (including Always Hidden).
@@ -55,6 +55,13 @@
   - Native `SMAppService` Launch at Login support.
 
 ---
+
+## What's new in v0.1.4
+
+- **Live menu bar layout & posture bar.** The *Menu Bar Items* tab now features a dedicated top posture bar showing a live left-to-right spatial diagram (`Always Hidden ‖ Hidden |› Visible`) that highlights active sections alongside an unambiguous `Collapsed` / `Expanded` / `Show All` state switcher.
+- **Keep the menu bar expanded while organizing in Settings.** Moving an icon to *Hidden* or *Always Hidden* via the Settings picker now updates in place instead of forcibly collapsing the menu bar after each change, and preserves Settings picker overrides across scans unless an icon physically crosses a divider.
+- **First-run & post-update Accessibility onboarding.** Before Accessibility is granted, *Menu Bar Items* displays a focused onboarding and permission view with a 3-step visual guide, live permission polling, and instructions for the `–` / `+` System Settings re-grant step after ad-hoc updates.
+- **Refined controls, grouped General settings, and icon caching.** Renamed row and footer actions (*Open Menu*, *Rescan Menu Bar* with *"Synced"* confirmation), added spatial section badges (`Right of |›`, `Left of |›`, `Left of ‖`), split *General* into *Auto-Hide*, *Sections & Dividers*, and *Shortcuts & Startup*, made error banners dismissible, added an empty-search recovery state, and cached app icons by PID.
 
 ## What's new in v0.1.3
 
@@ -131,7 +138,7 @@ Open an issue: [github.com/acchuang/MenuTuck/issues](https://github.com/acchuang
 | [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) | `UserDefaults`-backed observable settings and per-app section overrides. |
 | [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) | Settings window and its SwiftUI interface (*Menu Bar Items* and *General* tabs). |
 | [`scripts/generate-icon.swift`](scripts/generate-icon.swift) | CoreGraphics generator for [`Resources/AppIcon.icns`](Resources/AppIcon.icns) and [`Resources/AppIcon-1024.png`](Resources/AppIcon-1024.png) (`16×16`–`1024×1024`). |
-| [`Tests/MenuTuckTests`](Tests/MenuTuckTests) | Unit tests (the on-menu-bar filter only so far). |
+| [`Tests/MenuTuckTests`](Tests/MenuTuckTests) | Unit tests (on-menu-bar frame filtering and state/section label checks). |
 
 ---
 

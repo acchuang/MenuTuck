@@ -21,4 +21,11 @@ final class IsOnMenuBarTests: XCTestCase {
     func testUnplacedAtOriginIsNotOnBar() {
         XCTAssertFalse(frame(0, 0).isOnMenuBar)
     }
+
+    func testBarStateLabelsDoNotCollideWithSectionTitles() {
+        let stateLabels = Set(BarState.allCases.map(\.label))
+        let sectionTitles = Set(MenuSection.allCases.map(\.title))
+        XCTAssertTrue(stateLabels.isDisjoint(with: sectionTitles))
+        XCTAssertEqual(BarState.collapsed.label, "Collapsed")
+    }
 }

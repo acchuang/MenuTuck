@@ -13,7 +13,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let window = NSWindow(contentViewController: host)
         window.title = "MenuTuck"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setContentSize(NSSize(width: 580, height: 560))
+        window.setContentSize(NSSize(width: 620, height: 580))
         window.isReleasedWhenClosed = false
         window.center()
         super.init(window: window)
