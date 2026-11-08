@@ -387,6 +387,7 @@ private struct GeneralTab: View {
                 }
                 .disabled(!prefs.autoHide)
                 Toggle("Hide when clicking outside the menu bar", isOn: $prefs.rehideOnOutsideClick)
+                Toggle("Reveal hidden icons when hovering over |›", isOn: $prefs.hoverReveal)
             }
 
             Section("Sections & Dividers") {

@@ -29,6 +29,10 @@ final class SectionController: NSObject, ObservableObject {
     private var globalKeyMonitor: Any?
     private var localKeyMonitor: Any?
     private var outsideClickMonitor: Any?
+    private var hoverMonitor: Any?
+    private var hoverTimer: Timer?
+    private var hoverFrame: CGRect?
+    private var hoverFrameAt: Date = .distantPast
     private var cancellables = Set<AnyCancellable>()
     private let prefs = Preferences.shared
     private let hider = MenuBarHider.shared
@@ -61,10 +65,14 @@ final class SectionController: NSObject, ObservableObject {
         configureButtons()
         configureMonitors()
         startDividerPositionWatcher()
+        syncHoverMonitor()
         prefs.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                DispatchQueue.main.async { self?.apply() }
+                DispatchQueue.main.async {
+                    self?.apply()
+                    self?.syncHoverMonitor()
+                }
             }
             .store(in: &cancellables)
 
@@ -300,6 +308,47 @@ final class SectionController: NSObject, ObservableObject {
                 DispatchQueue.main.async { self.set(.collapsed) }
             }
         }
+    }
+
+    /// Installs the global mouse monitor only while "reveal on hover" is on, so it costs nothing otherwise.
+    /// The pointer is hit-tested against the toggle's AX frame: on macOS 27 the status item's own
+    /// window frame is useless (see `layout()`), so a tracking area on the button cannot be trusted.
+    private func syncHoverMonitor() {
+        if prefs.hoverReveal, hoverMonitor == nil {
+            hoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
+                self?.handleMouseMoved()
+            }
+        } else if !prefs.hoverReveal, let monitor = hoverMonitor {
+            NSEvent.removeMonitor(monitor)
+            hoverMonitor = nil
+            hoverTimer?.invalidate()
+            hoverTimer = nil
+        }
+    }
+
+    private func handleMouseMoved() {
+        guard state == .collapsed else { return cancelHover() }
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        let mouse = NSEvent.mouseLocation
+        let point = CGPoint(x: mouse.x, y: primaryHeight - mouse.y)
+        // Cheap reject first: this runs for every mouse move on screen.
+        guard point.y < 60 else { return cancelHover() }
+
+        if Date().timeIntervalSince(hoverFrameAt) > 1 {
+            hoverFrame = Self.ownAXFrames()[Self.toggleID]
+            hoverFrameAt = Date()
+        }
+        guard let frame = hoverFrame, frame.insetBy(dx: -2, dy: 0).contains(point) else { return cancelHover() }
+        guard hoverTimer == nil else { return }
+        hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            self?.hoverTimer = nil
+            if self?.state == .collapsed { self?.set(.expanded) }
+        }
+    }
+
+    private func cancelHover() {
+        hoverTimer?.invalidate()
+        hoverTimer = nil
     }
 
     /// Watches MenuTuck's own divider X coordinates via self-targeted `ownAXFrames()` (zero permissions).

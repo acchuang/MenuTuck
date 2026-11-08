@@ -12,6 +12,7 @@ final class Preferences: ObservableObject {
         static let alwaysHiddenEnabled = "alwaysHiddenEnabled"
         static let showDividers = "showDividers"
         static let enableGlobalHotkey = "enableGlobalHotkey"
+        static let hoverReveal = "hoverReveal"
         static let sectionOverrides = "sectionOverrides"
         static let lastPhysicalSections = "lastPhysicalSections"
     }
@@ -35,6 +36,8 @@ final class Preferences: ObservableObject {
     @Published var enableGlobalHotkey: Bool {
         didSet { defaults.set(enableGlobalHotkey, forKey: Key.enableGlobalHotkey) }
     }
+    /// Expand the hidden section when the pointer rests on the `|›` toggle. Off by default: it needs a global mouse monitor.
+    @Published var hoverReveal: Bool { didSet { defaults.set(hoverReveal, forKey: Key.hoverReveal) } }
     /// Saved per-bundleID section assignments (`bundleID -> MenuSection.rawValue`).
     @Published var sectionOverrides: [String: String] {
         didSet { defaults.set(sectionOverrides, forKey: Key.sectionOverrides) }
@@ -55,6 +58,7 @@ final class Preferences: ObservableObject {
         alwaysHiddenEnabled = defaults.bool(forKey: Key.alwaysHiddenEnabled)
         showDividers = defaults.bool(forKey: Key.showDividers)
         enableGlobalHotkey = defaults.bool(forKey: Key.enableGlobalHotkey)
+        hoverReveal = defaults.bool(forKey: Key.hoverReveal)
         sectionOverrides = (defaults.dictionary(forKey: Key.sectionOverrides) as? [String: String]) ?? [:]
         lastPhysicalSections = (defaults.dictionary(forKey: Key.lastPhysicalSections) as? [String: String]) ?? [:]
     }
