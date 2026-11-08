@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.4)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.5)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -56,7 +56,7 @@
 
 ---
 
-## Unreleased
+## What's new in v0.1.5
 
 - **Optional hover-to-reveal.** *General → Auto-Hide → Reveal hidden icons when hovering over `|›`* (off by default) expands the Hidden section after a 300 ms dwell on the toggle. Collapse still uses auto-hide or an outside click. The mouse monitor is only installed while the setting is on.
 - **Lower idle cost.** Divider positions are polled every `0.35 s` only while `⌘` is held (plus a 1 s tail), and every `5 s` otherwise; they used to be polled at `0.35 s` around the clock. The pre-collapse scan now rechecks only apps already known to own menu bar items, the full scan skips background-only apps, and the Settings window is released when closed.
