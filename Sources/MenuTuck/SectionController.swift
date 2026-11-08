@@ -2,72 +2,6 @@ import AppKit
 import ApplicationServices
 import Combine
 
-/// A menu bar section, from the user's point of view.
-enum MenuSection: String, CaseIterable, Identifiable {
-    case visible, hidden, alwaysHidden
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .visible: return "Visible"
-        case .hidden: return "Hidden"
-        case .alwaysHidden: return "Always Hidden"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .visible: return "eye"
-        case .hidden: return "eye.slash"
-        case .alwaysHidden: return "lock"
-        }
-    }
-
-    /// Short spatial hint relating this section to the physical menu bar dividers.
-    var spatialHint: String {
-        switch self {
-        case .visible: return "Right of |›"
-        case .hidden: return "Left of |›"
-        case .alwaysHidden: return "Left of ‖"
-        }
-    }
-
-    /// The divider glyph associated with this section in the menu bar.
-    var dividerGlyph: String {
-        switch self {
-        case .visible: return "|›"
-        case .hidden: return "|‹"
-        case .alwaysHidden: return "‖"
-        }
-    }
-}
-
-enum BarState: String, CaseIterable, Identifiable {
-    /// Hidden and always-hidden icons are off screen.
-    case collapsed
-    /// Hidden icons show. Always-hidden icons stay off screen.
-    case expanded
-    /// All icons show.
-    case showAll
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .collapsed: return "Collapsed"
-        case .expanded: return "Expanded"
-        case .showAll: return "Show All"
-        }
-    }
-}
-
-/// Positions of MenuTuck's own status items, in global CG coordinates (top-left origin).
-struct DividerLayout {
-    var toggle: CGRect
-    var alwaysHidden: CGRect?
-}
-
 /// Owns the MenuTuck status items (`|‹` / `|›` and `‖`) and drives native icon hiding.
 final class SectionController: NSObject, ObservableObject {
     static let collapsedLength: CGFloat = 10_000
@@ -75,7 +9,6 @@ final class SectionController: NSObject, ObservableObject {
     static let toggleLength: CGFloat = 24
 
     static let toggleID = "MenuTuckToggle"
-    static let hiddenDividerID = "MenuTuckHiddenDivider"
     static let alwaysHiddenDividerID = "MenuTuckAlwaysHiddenDivider"
 
     let toggleItem: NSStatusItem
@@ -436,49 +369,4 @@ final class SectionController: NSObject, ObservableObject {
     @objc private func menuToggle() { toggle() }
     @objc private func menuShowAll() { set(.showAll) }
     @objc private func menuSettings() { onOpenSettings?() }
-
-    // MARK: - Images
-
-    /// Combined divider bar + chevron (`|‹` when collapsed, `|›` when expanded) for the Hidden section boundary.
-    private static func toggleImage(collapsed: Bool, showDivider: Bool) -> NSImage {
-        let symbolName = collapsed ? "chevron.left" : "chevron.right"
-        let chevron = NSImage(systemSymbolName: symbolName, accessibilityDescription: "MenuTuck")?
-            .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold))
-        guard showDivider else {
-            chevron?.isTemplate = true
-            return chevron ?? NSImage()
-        }
-        let image = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { rect in
-            NSColor.black.setFill()
-            let bar = NSRect(x: 1.5, y: 2, width: 1.5, height: rect.height - 4)
-            NSBezierPath(roundedRect: bar, xRadius: 0.75, yRadius: 0.75).fill()
-            if let chevron {
-                let cSize = chevron.size
-                let dst = NSRect(
-                    x: 5.5 + max(0, (10 - cSize.width) / 2),
-                    y: (rect.height - cSize.height) / 2,
-                    width: cSize.width,
-                    height: cSize.height
-                )
-                chevron.draw(in: dst)
-            }
-            return true
-        }
-        image.isTemplate = true
-        return image
-    }
-
-    /// Double vertical bar `‖` for the Always-Hidden section divider.
-    private static let alwaysHiddenDividerImage: NSImage = {
-        let image = NSImage(size: NSSize(width: 8, height: 16), flipped: false) { rect in
-            NSColor.black.setFill()
-            let leftBar = NSRect(x: rect.midX - 2.25, y: 2, width: 1.5, height: rect.height - 4)
-            let rightBar = NSRect(x: rect.midX + 0.75, y: 2, width: 1.5, height: rect.height - 4)
-            NSBezierPath(roundedRect: leftBar, xRadius: 0.75, yRadius: 0.75).fill()
-            NSBezierPath(roundedRect: rightBar, xRadius: 0.75, yRadius: 0.75).fill()
-            return true
-        }
-        image.isTemplate = true
-        return image
-    }()
 }
