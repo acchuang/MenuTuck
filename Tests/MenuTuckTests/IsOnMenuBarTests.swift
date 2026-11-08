@@ -22,6 +22,14 @@ final class IsOnMenuBarTests: XCTestCase {
         XCTAssertFalse(frame(0, 0).isOnMenuBar)
     }
 
+    func testPollIntervalFastOnlyAroundCommand() {
+        let p = DividerPollPolicy.self
+        XCTAssertEqual(p.interval(commandHeld: true, secondsSinceRelease: 99, trusted: true), p.fast)
+        XCTAssertEqual(p.interval(commandHeld: false, secondsSinceRelease: 0.5, trusted: true), p.fast)
+        XCTAssertEqual(p.interval(commandHeld: false, secondsSinceRelease: 2, trusted: true), p.heartbeat)
+        XCTAssertEqual(p.interval(commandHeld: true, secondsSinceRelease: 0, trusted: false), p.heartbeat)
+    }
+
     func testBarStateLabelsDoNotCollideWithSectionTitles() {
         let stateLabels = Set(BarState.allCases.map(\.label))
         let sectionTitles = Set(MenuSection.allCases.map(\.title))

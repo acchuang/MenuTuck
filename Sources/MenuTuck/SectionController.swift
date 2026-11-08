@@ -22,6 +22,10 @@ final class SectionController: NSObject, ObservableObject {
     private var lastObservedToggleX: CGFloat?
     private var lastObservedAlwaysHiddenX: CGFloat?
     private var lastApplyTime: Date = .distantPast
+    private var commandHeld = false
+    private var commandReleasedAt: Date = .distantPast
+    private var globalFlagsMonitor: Any?
+    private var localFlagsMonitor: Any?
     private var globalKeyMonitor: Any?
     private var localKeyMonitor: Any?
     private var outsideClickMonitor: Any?
@@ -301,9 +305,34 @@ final class SectionController: NSObject, ObservableObject {
     /// Watches MenuTuck's own divider X coordinates via self-targeted `ownAXFrames()` (zero permissions).
     /// Because the macOS menu bar is right-aligned from Clock, any `⌘`-drag of an icon across `|›` or `‖`
     /// (or any `⌘`-drag of `|›` or `‖` itself) immediately shifts `toggle.minX` or `alwaysHidden.minX`.
+    /// Polls every 0.35 s while `⌘` is down (plus a 1 s tail), else a 5 s heartbeat; see `DividerPollPolicy`.
     private func startDividerPositionWatcher() {
-        dividerPollTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { [weak self] _ in
+        let onFlags: (NSEvent) -> Void = { [weak self] event in
+            guard let self else { return }
+            let held = event.modifierFlags.contains(.command)
+            guard held != self.commandHeld else { return }
+            self.commandHeld = held
+            if !held { self.commandReleasedAt = Date() }
+            self.scheduleDividerPoll()
+        }
+        globalFlagsMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: onFlags)
+        localFlagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            onFlags(event)
+            return event
+        }
+        scheduleDividerPoll()
+    }
+
+    private func scheduleDividerPoll() {
+        dividerPollTimer?.invalidate()
+        let interval = DividerPollPolicy.interval(
+            commandHeld: commandHeld,
+            secondsSinceRelease: Date().timeIntervalSince(commandReleasedAt),
+            trusted: AXIsProcessTrusted()
+        )
+        dividerPollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
             self?.checkIfDividerPositionsShifted()
+            self?.scheduleDividerPoll()
         }
     }
 

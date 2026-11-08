@@ -60,6 +60,20 @@ enum BarState: String, CaseIterable, Identifiable {
     }
 }
 
+/// How often to re-read the divider positions. A ⌘-drag across `|›` or `‖` is the only user action
+/// that shifts them, so poll fast only around ⌘; otherwise a slow heartbeat catches width drift
+/// from other apps' items (battery %, clock).
+enum DividerPollPolicy {
+    static let fast: TimeInterval = 0.35
+    static let heartbeat: TimeInterval = 5
+    static let tail: TimeInterval = 1
+
+    /// `trusted` gates the fast path: without Accessibility the global ⌘ monitor never fires.
+    static func interval(commandHeld: Bool, secondsSinceRelease: TimeInterval, trusted: Bool) -> TimeInterval {
+        trusted && (commandHeld || secondsSinceRelease < tail) ? fast : heartbeat
+    }
+}
+
 /// Positions of MenuTuck's own status items, in global CG coordinates (top-left origin).
 struct DividerLayout {
     var toggle: CGRect
