@@ -56,6 +56,12 @@
 
 ---
 
+## Unreleased
+
+- **Optional hover-to-reveal.** *General → Auto-Hide → Reveal hidden icons when hovering over `|›`* (off by default) expands the Hidden section after a 300 ms dwell on the toggle. Collapse still uses auto-hide or an outside click. The mouse monitor is only installed while the setting is on.
+- **Lower idle cost.** Divider positions are polled every `0.35 s` only while `⌘` is held (plus a 1 s tail), and every `5 s` otherwise; they used to be polled at `0.35 s` around the clock. The pre-collapse scan now rechecks only apps already known to own menu bar items, the full scan skips background-only apps, and the Settings window is released when closed.
+- **Internal.** `SectionController` and `SettingsView` split into `MenuSection.swift`, `StatusImages.swift` and `OnboardingView.swift`. No behavior change.
+
 ## What's new in v0.1.4
 
 - **Live menu bar layout & posture bar.** The *Menu Bar Items* tab now features a dedicated top posture bar showing a live left-to-right spatial diagram (`Always Hidden ‖ Hidden |› Visible`) that highlights active sections alongside an unambiguous `Collapsed` / `Expanded` / `Show All` state switcher.
@@ -88,13 +94,13 @@
 
 ## MenuTuck at a glance
 
-Measured on macOS 27.2 (build of current `main`, running instance, idle):
+Measured on macOS 27.2 (release build of the unreleased changes, fresh launch, idle, 60 s sample):
 
 | Metric | MenuTuck |
 | --- | --- |
-| App bundle / binary size | `~910 KB` / `630 KB` |
-| Memory (`phys_footprint`) | `~65 MB` |
-| Idle CPU (`top`) | `~0.7%` |
+| App bundle / binary size | `~910 KB` / `630 KB` (not re-measured) |
+| Memory (`phys_footprint`) | `~15 MB` fresh; the v0.1.4 build grew to `~84 MB` over ~5 days of uptime (growth not re-checked on this build) |
+| Idle CPU (`top`) | `~0.05%` (v0.1.4 measured `~1.3%`) |
 | Third-party dependencies | None (Apple frameworks only) |
 | Screen Recording permission | Not requested |
 | License / cost | MIT, free |
