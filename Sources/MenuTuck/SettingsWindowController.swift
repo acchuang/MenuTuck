@@ -5,6 +5,8 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let sections: SectionController
     private let model: ItemsModel
+    /// Lets the owner drop this controller so the SwiftUI tree is freed while the window is closed.
+    var onClose: (() -> Void)?
 
     init(sections: SectionController, model: ItemsModel) {
         self.sections = sections
@@ -22,6 +24,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func windowWillClose(_ notification: Notification) {
+        DispatchQueue.main.async { [onClose] in onClose?() }
+    }
 
     func show() {
         NSApp.activate()

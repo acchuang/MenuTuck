@@ -45,12 +45,15 @@ enum MenuBarScanner {
         "GamePolicyAgent",
     ]
 
-    /// Blocking. Call from a background queue.
-    static func scan() -> [MenuBarItem] {
+    /// Blocking. Call from a background queue. `onlyPIDs` limits the scan to those processes.
+    static func scan(onlyPIDs: Set<pid_t>? = nil) -> [MenuBarItem] {
         guard AXIsProcessTrusted() else { return [] }
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let apps = NSWorkspace.shared.runningApplications.filter { app in
             guard app.processIdentifier != ownPID else { return false }
+            // Background-only processes can't own a status item.
+            guard app.activationPolicy != .prohibited else { return false }
+            if let onlyPIDs, !onlyPIDs.contains(app.processIdentifier) { return false }
             if let bid = app.bundleIdentifier, excludedBundles.contains(bid) { return false }
             let name = app.localizedName ?? app.executableURL?.lastPathComponent ?? ""
             if excludedNames.contains(name) { return false }

@@ -53,7 +53,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openSettings() {
         if settingsWindow == nil {
-            settingsWindow = SettingsWindowController(sections: sections, model: model)
+            let controller = SettingsWindowController(sections: sections, model: model)
+            controller.onClose = { [weak self] in self?.settingsWindow = nil }
+            settingsWindow = controller
         }
         settingsWindow?.show()
     }

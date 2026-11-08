@@ -55,7 +55,9 @@ final class ItemsModel: ObservableObject {
     /// performed while expanded take effect immediately before `MenuBarHider` hides the items.
     func syncBeforeCollapse() {
         guard AXIsProcessTrusted(), let layout = controller?.layout(), layout.toggle.width > 0 else { return }
-        let found = MenuBarScanner.scan()
+        // Known item owners only: a full scan here stalls the main thread. New apps arrive via refresh().
+        let knownPIDs = Set(cachedByID.values.map(\.pid))
+        let found = MenuBarScanner.scan(onlyPIDs: knownPIDs.isEmpty ? nil : knownPIDs)
         let ahEnabled = prefs.alwaysHiddenEnabled
 
         for scanned in found where scanned.frame.isOnMenuBar {
