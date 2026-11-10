@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.5)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.6)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -21,16 +21,16 @@
 
 1. Download [**`MenuTuck.dmg`**](https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg) (or [**`MenuTuck-macOS.zip`**](https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip)) from the [latest GitHub Release](https://github.com/acchuang/MenuTuck/releases/latest).
 2. Drag **`MenuTuck.app`** into **`/Applications`**.
-3. Clear the macOS quarantine attribute (since the binary uses ad-hoc code signing) and launch:
+3. Clear the macOS quarantine attribute (the app is signed with a self-signed certificate and is not notarized) and launch:
    ```bash
    xattr -cr /Applications/MenuTuck.app
    open /Applications/MenuTuck.app
    ```
 4. Grant **Accessibility** access when prompted (**System Settings → Privacy & Security → Accessibility**) so MenuTuck can detect live `⌘`-drags across dividers and trigger menu bar items.
 
-**After updating:** the build is ad-hoc signed, so every new version looks like a different app to macOS and the Accessibility grant silently stops working. Remove **MenuTuck** from **System Settings → Privacy & Security → Accessibility** with **–**, then add it again (or run `tccutil reset Accessibility com.acchuang.MenuTuck` and relaunch).
+**Updating from v0.1.5 or earlier:** those builds were ad-hoc signed, so macOS sees v0.1.6 as a different app and the Accessibility grant silently stops working. One last time, remove **MenuTuck** from **System Settings → Privacy & Security → Accessibility** with **–**, then add it again (or run `tccutil reset Accessibility com.acchuang.MenuTuck` and relaunch). From v0.1.6 on, releases share one signing certificate and the grant survives updates. Right-click `|‹` / `|›` → **Check for Updates…** tells you when a newer release exists.
 
-**Verified on macOS 27.0.1 and 27.2 only.** On macOS 14–26, MenuTuck uses native hiding if the private API is present and the `10,000 pt` spacer fallback if not. Neither path has been run on those versions. See [Known limitations](#known-limitations).
+**Requires macOS 27.0 or later.** Verified on macOS 27.0.1 and 27.2. If a macOS update removes the private API MenuTuck relies on, it shows an alert at launch and leaves your menu bar untouched. See [Known limitations](#known-limitations).
 
 ---
 
@@ -41,20 +41,25 @@
   - **`‖` (Always-Hidden Divider)**: Sits between the **Always Hidden** section (to its left) and the **Hidden** section (to its right).
 - **Native In-Place Hiding (`MenuBarAgent`, tested on macOS 27.0.1 and 27.2)**:
   - Uses `MenuBarClientCore` (`MBAssessmentModeAssertion`) to hide and restore third-party menu bar icons in place, with no Screen Recording permission.
-  - Falls back to expandable `NSStatusItem` spacers (`10,000 pt`) when that API is unavailable (untested on 14–26; it does not hide anything on 27.2, see below).
 - **Two Ways to Organize Icons**:
   - **In the Menu Bar**: Hold `⌘` and drag any icon to the left of `|‹` / `|›` to hide it, or to the left of `‖` to always hide it.
   - **In Settings (`Menu Bar Items` tab)**: Assign any running menu bar app to **Visible**, **Hidden**, or **Always Hidden** with the section picker (accompanied by a live `[Always Hidden] ‖ [Hidden] |› [Visible]` layout bar), or click **Open Menu** to trigger its menu bar item remotely.
 - **Quick Controls**:
   - **Left-click `|‹` / `|›`**: Toggle Hidden icons.
   - **Option-click (`⌥`-click) `|‹` / `|›` or click `‖`**: Show All icons (including Always Hidden).
-  - **Right-click `|‹` / `|›`**: Open the quick menu (*Show/Hide Icons*, *Show All Icons*, *Settings…*, *Quit*).
+  - **Right-click `|‹` / `|›`**: Open the quick menu (*Show/Hide Icons*, *Show All Icons*, *Settings…*, *Check for Updates…*, *Quit*).
   - **Global Shortcut (`⌃⌥M`)**: Toggle Hidden icons from anywhere.
 - **Auto-Rehide & Launch at Login**:
   - Automatically collapses hidden icons after a configurable delay (`3–60 s`) or when clicking outside the menu bar.
   - Native `SMAppService` Launch at Login support.
 
 ---
+
+## What's new in v0.1.6
+
+- **Accessibility grant survives updates.** Releases are now signed with one self-signed certificate instead of ad-hoc, so macOS keeps recognizing the app. **Upgrading from v0.1.5 needs one last remove-and-re-add of MenuTuck under Accessibility.** Still not notarized, so the `xattr -cr` step stays.
+- **Check for Updates….** New item in the right-click menu. It makes one request to the GitHub Releases API when you click it, and offers to open the release page. Nothing is checked in the background.
+- **macOS 27 only.** The minimum is now 27.0. The `10,000 pt` spacer fallback is deleted: it hid nothing on 27.2 and was never run elsewhere. If the private API is missing, MenuTuck shows an alert at launch and leaves your menu bar alone.
 
 ## What's new in v0.1.5
 
@@ -103,6 +108,7 @@ Measured on macOS 27.2 (release build of the unreleased changes, fresh launch, i
 | Idle CPU (`top`) | `~0.05%` (v0.1.4 measured `~1.3%`) |
 | Third-party dependencies | None (Apple frameworks only) |
 | Screen Recording permission | Not requested |
+| Network | None, except one GitHub request when you click *Check for Updates…* |
 | License / cost | MIT, free |
 
 ## Alternatives
@@ -117,13 +123,12 @@ Other menu bar managers worth a look. Licenses as listed by each project; compar
 
 ## Known limitations
 
-- **Private API.** In-place hiding uses Apple's private `MenuBarClientCore` framework. A macOS update can change or remove it. MenuTuck checks that the expected selectors exist and falls back to the spacer path if not, but that check can't catch every change.
-- **Older macOS untested.** Only macOS 27.0.1 and 27.2 have been tried. I don't know which of macOS 14–26 ship `MenuBarClientCore`, or whether the `10,000 pt` spacer fallback works on them.
-- **Spacer fallback doesn't hide on 27.2.** Without the private API, MenuTuck widens a status item to `10,000 pt` to push icons off-screen. On 27.2 (fallback forced on, with the spacer on `‖` and again on the toggle) the item reports a clamped 5002 pt frame and the icons next to it don't move, so nothing is hidden. I don't know whether 14–26 behave differently, so the fallback is unfixed. Settings > General shows a warning when the private API is missing.
+- **Private API.** In-place hiding uses Apple's private `MenuBarClientCore` framework. A macOS update can change or remove it. MenuTuck checks that the expected selectors exist and, if not, shows an alert at launch and hides nothing, but that check can't catch every change.
+- **macOS 27 only.** Only macOS 27.0.1 and 27.2 have been tried, and older versions won't launch the app. There is no fallback: a spacer-based one hid nothing on 27.2, so it was removed.
 - **Hardcoded system items.** The hide list allows system menu bar items `0...15` and assumes `4` is the keyboard item. If a future macOS adds an item with a higher ID, MenuTuck may hide it.
 - **Multiple displays.** "Re-hide on outside click" measures the menu bar against the screen you clicked on. The bar height comes from the screen itself (30 pt external, 38 pt notched), with a 36 pt floor for auto-hide. Items on a display left of the primary (negative x) are accepted by the scanner, but I haven't run that layout either. Verified on a 30 pt external plus a 38 pt notched display with aligned top edges; staggered arrangements are untested.
 - **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
-- **Not notarized.** Ad-hoc signed, hence the `xattr -cr` step and the Accessibility re-grant after each update.
+- **Not notarized.** Signed with a self-signed certificate (no paid Apple Developer ID), hence the `xattr -cr` step. Updates keep your Accessibility grant only while releases are signed with that same certificate; if its key is ever lost, everyone re-grants once.
 
 ## Bugs & feedback
 
@@ -140,17 +145,18 @@ Open an issue: [github.com/acchuang/MenuTuck/issues](https://github.com/acchuang
 | [`Sources/MenuTuck/SectionController.swift`](Sources/MenuTuck/SectionController.swift) | Manages the `|‹`/`|›` and `‖` status items, self-targeted `AXUIElement` frame tracking, hotkeys, and auto-rehide timers. |
 | [`Sources/MenuTuck/MenuBarHider.swift`](Sources/MenuTuck/MenuBarHider.swift) | Bridges `MenuBarClientCore` (`MBAssessmentModeAssertion` & `MBAssessmentModeConfiguration`) for native in-place icon hiding. |
 | [`Sources/MenuTuck/MenuBarScanner.swift`](Sources/MenuTuck/MenuBarScanner.swift) | Parallel `AXUIElement` (`kAXExtrasMenuBarAttribute`) scanner and action dispatcher. |
+| [`Sources/MenuTuck/UpdateChecker.swift`](Sources/MenuTuck/UpdateChecker.swift) | Manual *Check for Updates…*: one GitHub `releases/latest` request, numeric tag compare. |
 | [`Sources/MenuTuck/ItemsModel.swift`](Sources/MenuTuck/ItemsModel.swift) | Classifies items relative to `|›` and `‖` and reconciles live `⌘`-drags with Settings overrides. |
 | [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) | `UserDefaults`-backed observable settings and per-app section overrides. |
 | [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) | Settings window and its SwiftUI interface (*Menu Bar Items* and *General* tabs). |
 | [`scripts/generate-icon.swift`](scripts/generate-icon.swift) | CoreGraphics generator for [`Resources/AppIcon.icns`](Resources/AppIcon.icns) and [`Resources/AppIcon-1024.png`](Resources/AppIcon-1024.png) (`16×16`–`1024×1024`). |
-| [`Tests/MenuTuckTests`](Tests/MenuTuckTests) | Unit tests (on-menu-bar frame filtering and state/section label checks). |
+| [`Tests/MenuTuckTests`](Tests/MenuTuckTests) | Unit tests (on-menu-bar frame filtering, state/section label checks, update-tag compare). |
 
 ---
 
 ## Build from Source
 
-Requirements: macOS 14.0+ and Xcode / Swift 5.10+.
+Requirements: macOS 27.0+ and Xcode / Swift 5.10+.
 
 ```bash
 git clone https://github.com/acchuang/MenuTuck.git

@@ -1,6 +1,6 @@
 # AGENTS.md — `MenuTuck`
 
-Native macOS menu bar icon manager (`AppKit` + `SwiftUI`, Swift 5.10+, macOS 14+).
+Native macOS menu bar icon manager (`AppKit` + `SwiftUI`, Swift 5.10+, macOS 27+).
 Uses a **Hybrid Divider Architecture** (verified on macOS 27.0.1 and 27.2 only): physical draggable dividers (`‹`/`›`, `|`, `‖`) in the menu bar define section boundaries, while `MenuBarClientCore` (`MBAssessmentModeAssertion`) hides and reveals icons in place.
 
 ## Build & Run
@@ -12,14 +12,15 @@ Uses a **Hybrid Divider Architecture** (verified on macOS 27.0.1 and 27.2 only):
 # Debug build
 ./scripts/build-app.sh debug
 
-# Sign with the local self-signed "MenuTuck Dev" cert (keychain: ~/Library/Keychains/menutuck-dev.keychain-db).
+# Sign with the local self-signed "MenuTuck Release" cert (login keychain).
 # Its designated requirement is stable across rebuilds, so the Accessibility grant survives them.
-SIGN_IDENTITY=848A34F423C068B924BE7B3DA75933DEB2A01632 ./scripts/build-app.sh
+SIGN_IDENTITY=BEAA9D39B2AF571B71D687B8F214FECE833AD432 ./scripts/build-app.sh
 
 # Build without touching /Applications (keeps the installed app and its Accessibility grant)
 SKIP_INSTALL=1 ./scripts/build-app.sh
 
-# Build build/MenuTuck.dmg and build/MenuTuck-macOS.zip (never installs; prints SHA-256)
+# Build build/MenuTuck.dmg and build/MenuTuck-macOS.zip (never installs; prints SHA-256).
+# Signs with the "MenuTuck Release" cert by default and refuses to package an ad-hoc build.
 ./scripts/package.sh
 
 # Run the unit tests (isOnMenuBar and BarState/MenuSection label checks)
@@ -38,13 +39,14 @@ open /Applications/MenuTuck.app
 - [`Sources/MenuTuck/AppDelegate.swift`](Sources/MenuTuck/AppDelegate.swift) — App lifecycle and settings window routing.
 - [`Sources/MenuTuck/SectionController.swift`](Sources/MenuTuck/SectionController.swift) — Owns the 2 boundary status items (`toggleItem` `|‹`/`|›` and `alwaysHiddenDivider` `‖`), collapses `‖` to `0 pt` via `NSStatusBarContentView` width-constraint deactivation so `MenuBarAgent` never loses its X position, resolves true macOS 27 screen coordinates via self-targeted `AXUIElementCreateApplication(getpid())`, and watches `ownAXFrames()` to detect `⌘`-drags across dividers (every `0.35s` while `⌘` is held plus a 1 s tail, else a 5 s heartbeat; see `DividerPollPolicy`). Also runs the opt-in hover-to-reveal monitor on `toggleItem`.
 - [`Sources/MenuTuck/MenuSection.swift`](Sources/MenuTuck/MenuSection.swift) — `MenuSection`, `BarState`, `DividerLayout`, `DividerPollPolicy`. [`StatusImages.swift`](Sources/MenuTuck/StatusImages.swift) holds the toggle/divider glyph builders; [`OnboardingView.swift`](Sources/MenuTuck/OnboardingView.swift) the Accessibility onboarding view.
-- [`Sources/MenuTuck/MenuBarHider.swift`](Sources/MenuTuck/MenuBarHider.swift) — Drives the private `MenuBarClientCore` (`MBAssessmentModeAssertion` + `MBAssessmentModeConfiguration`) to hide and reveal third-party menu bar icons in place. `isSupported` is false unless every selector it calls exists, which selects the spacer fallback. Always invalidates the previous assertion before activating a new one; a failed `activate` is logged and its state is cleared so the next `apply()` retries.
+- [`Sources/MenuTuck/MenuBarHider.swift`](Sources/MenuTuck/MenuBarHider.swift) — Drives the private `MenuBarClientCore` (`MBAssessmentModeAssertion` + `MBAssessmentModeConfiguration`) to hide and reveal third-party menu bar icons in place. `isSupported` is false unless every selector it calls exists; then `apply()` does nothing, the menu bar is left alone, and the app alerts once at launch. Always invalidates the previous assertion before activating a new one; a failed `activate` is logged and its state is cleared so the next `apply()` retries.
+- [`Sources/MenuTuck/UpdateChecker.swift`](Sources/MenuTuck/UpdateChecker.swift) — Manual *Check for Updates…* (right-click menu). One GitHub `releases/latest` request per click, numeric tag compare, `NSAlert` result. No background check; the app's only network call.
 - [`Sources/MenuTuck/MenuBarScanner.swift`](Sources/MenuTuck/MenuBarScanner.swift) — Parallel `AXUIElement` (`kAXExtrasMenuBarAttribute`) scanner.
 - [`Sources/MenuTuck/ItemsModel.swift`](Sources/MenuTuck/ItemsModel.swift) — Observable state for scanning, classifying items relative to the `|›` and `‖` dividers, tracking `lastPhysicalSections` so Settings picker overrides and physical `⌘`-drags never overwrite each other, and triggering items.
 - [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) — `UserDefaults`-backed observable preferences, `sectionOverrides`, and `lastPhysicalSections`.
 - [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) — Settings window UI. The General tab shows a warning when `MenuBarHider.isSupported` is false.
 - [`scripts/generate-icon.swift`](scripts/generate-icon.swift) — CoreGraphics vector icon generator (`16×16` to `1024×1024`) producing `Resources/AppIcon.icns` and `Resources/AppIcon-1024.png`.
-- [`Tests/MenuTuckTests`](Tests/MenuTuckTests) — Unit tests (`isOnMenuBar`, `BarState`/`MenuSection` label separation, `DividerPollPolicy`).
+- [`Tests/MenuTuckTests`](Tests/MenuTuckTests) — Unit tests (`isOnMenuBar`, `BarState`/`MenuSection` label separation, `DividerPollPolicy`, update-tag compare).
 
 ## Traps
 
@@ -61,5 +63,5 @@ open /Applications/MenuTuck.app
 - **Hover reveal hit-tests a global `.mouseMoved` monitor against `ownAXFrames()[toggle]`**: an `NSTrackingArea` on the toggle button is not usable because the status item window is `(0, 0, w, 0)` on macOS 27. The monitor exists only while `prefs.hoverReveal` is on; a 300 ms one-shot timer arms on entry and is cancelled on exit. Verified live on 27.2 (collapsed → expanded, icons appear); other macOS versions untested.
 - **The fast divider poll depends on `.flagsChanged` monitors**: the global monitor needs Accessibility. Untrusted, `DividerPollPolicy` falls back to the 5 s heartbeat, so a `⌘`-drag is detected up to 5 s late.
 - **`isOnMenuBar` must accept negative x**: a display left of the primary reports status items at negative x (seen: `‖` at x=-698 on the built-in). The filter only needs to reject parked frames (large y) and unplaced ones at the origin, so it tests `abs(minX) > 5`.
-- **Spacer fallback doesn't hide on 27.2**: forcing `isSupported` false, a `10,000 pt` status item (tried on `‖`, then on `toggleItem`) reports a 5002 pt AX frame and the neighbouring icons stay drawn in place. Unfixed: can't be proven on 14–26 from here, and a toggle-as-spacer rewrite did nothing on 27.2.
-- **Code Signing**: Never sign with a revoked Apple Development certificate in Keychain. `syspolicyd` / Gatekeeper treats binaries signed with a revoked certificate as malware (`GK evaluateScanResult: 2`) and moves the `.app` bundle to `~/.Trash`. `scripts/build-app.sh` defaults to ad-hoc signing (`-`); for local rebuilds that keep the Accessibility grant, pass `SIGN_IDENTITY` as shown under Build & Run. That cert exists only on the maintainer's machine; check `security find-identity -p codesigning` for it. Released builds stay ad-hoc.
+- **No spacer fallback, on purpose**: a `10,000 pt` status item (tried on `‖`, then on `toggleItem`) reported a 5002 pt AX frame on 27.2 and the neighbouring icons stayed drawn in place, so the fallback was deleted in v0.1.6. Don't re-add it without a macOS version where it is shown to hide icons.
+- **Code Signing**: Never sign with a revoked Apple Development certificate in Keychain. `syspolicyd` / Gatekeeper treats binaries signed with a revoked certificate as malware (`GK evaluateScanResult: 2`) and moves the `.app` bundle to `~/.Trash`. `scripts/build-app.sh` defaults to ad-hoc signing (`-`); for local rebuilds that keep the Accessibility grant, pass `SIGN_IDENTITY` as shown under Build & Run. That cert exists only on the maintainer's machine; check `security find-identity -p codesigning` for it. Releases (from v0.1.6) are signed with it so users keep their Accessibility grant across updates; losing its key means every user re-grants once. Keep a passphrase-protected `.p12` export in a password manager.
