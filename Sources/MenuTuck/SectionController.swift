@@ -421,6 +421,7 @@ final class SectionController: NSObject, ObservableObject {
         showAll.isEnabled = state != .showAll
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(menuSettings), keyEquivalent: ",").target = self
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(menuCheckUpdates), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit MenuTuck", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
@@ -432,4 +433,5 @@ final class SectionController: NSObject, ObservableObject {
     @objc private func menuToggle() { toggle() }
     @objc private func menuShowAll() { set(.showAll) }
     @objc private func menuSettings() { onOpenSettings?() }
+    @objc private func menuCheckUpdates() { UpdateChecker.run() }
 }
