@@ -33,6 +33,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.model.refresh(syncFromDividers: false)
         }
 
+        if !MenuBarHider.shared.isSupported {
+            DispatchQueue.main.async {
+                let alert = NSAlert()
+                alert.messageText = "MenuTuck can't hide icons on this macOS version"
+                alert.informativeText = "The menu bar API MenuTuck relies on is missing, probably after a macOS update. Icons will stay visible. Check for a newer MenuTuck release."
+                NSApp.activate(ignoringOtherApps: true)
+                alert.runModal()
+            }
+        }
+
         // Show the settings window once, so a new user sees how the app works.
         let defaults = UserDefaults.standard
         if !defaults.bool(forKey: "didOnboard") {

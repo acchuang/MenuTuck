@@ -4,7 +4,6 @@ import Combine
 
 /// Owns the MenuTuck status items (`|‹` / `|›` and `‖`) and drives native icon hiding.
 final class SectionController: NSObject, ObservableObject {
-    static let collapsedLength: CGFloat = 10_000
     static let dividerLength: CGFloat = 14
     static let toggleLength: CGFloat = 24
 
@@ -127,20 +126,6 @@ final class SectionController: NSObject, ObservableObject {
             case .showAll:
                 setDivider(alwaysHiddenDivider, constraint: &alwaysHiddenConstraint, visible: ahEnabled && showDivs, image: Self.alwaysHiddenDividerImage)
                 hider.showAll()
-            }
-        } else {
-            switch state {
-            case .collapsed:
-                alwaysHiddenDivider.length = Self.collapsedLength
-                alwaysHiddenDivider.button?.image = nil
-
-            case .expanded:
-                alwaysHiddenDivider.length = ahEnabled ? Self.collapsedLength : 0
-                alwaysHiddenDivider.button?.image = nil
-
-            case .showAll:
-                alwaysHiddenDivider.length = ahEnabled ? Self.dividerLength : 0
-                alwaysHiddenDivider.button?.image = ahEnabled ? Self.alwaysHiddenDividerImage : nil
             }
         }
 

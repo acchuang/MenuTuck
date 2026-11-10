@@ -37,7 +37,7 @@ final class MenuBarHider {
     private init() {
         _ = dlopen("/System/Library/PrivateFrameworks/MenuBarClientCore.framework/MenuBarClientCore", RTLD_NOW)
         // Private API: confirm every selector we call exists, so a changed signature
-        // falls back to the spacer path instead of an unrecognized-selector crash.
+        // disables hiding instead of crashing on an unrecognized selector.
         let cfgClass: AnyClass? = NSClassFromString("MBAssessmentModeConfiguration")
         let assClass: AnyClass? = NSClassFromString("MBAssessmentModeAssertion")
         if let cfgClass, let assClass,
@@ -47,7 +47,7 @@ final class MenuBarHider {
             configType = unsafeBitCast(cfgClass, to: MBAssessmentModeConfigurationProtocol.Type.self)
             assertionType = unsafeBitCast(assClass, to: MBAssessmentModeAssertionProtocol.Type.self)
         } else {
-            Self.log.error("MenuBarClientCore unusable (configuration class: \(cfgClass != nil), assertion class: \(assClass != nil), or a selector changed); using spacer fallback")
+            Self.log.error("MenuBarClientCore unusable (configuration class: \(cfgClass != nil), assertion class: \(assClass != nil), or a selector changed); hiding disabled")
             configType = nil
             assertionType = nil
         }
