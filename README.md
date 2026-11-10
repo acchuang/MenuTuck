@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Native macOS Menu Bar Icon Manager</strong><br/>
-  Hide, reveal, and organize menu bar icons into <em>Visible</em>, <em>Hidden</em>, and <em>Always Hidden</em> sections. A small Swift app, MIT-licensed, no Screen Recording permission.
+  Hide, reveal, and organize menu bar icons into <em>Visible</em>, <em>Hidden</em>, and <em>Always Hidden</em> sections. A small Swift app for macOS 27+, MIT-licensed, no Screen Recording permission.
 </p>
 
 <p align="center">
@@ -99,7 +99,7 @@
 
 ## MenuTuck at a glance
 
-Measured on macOS 27.2 (release build of the unreleased changes, fresh launch, idle, 60 s sample):
+Measured on macOS 27.2 (release build from before v0.1.6, fresh launch, idle, 60 s sample; v0.1.6 not re-measured):
 
 | Metric | MenuTuck |
 | --- | --- |
