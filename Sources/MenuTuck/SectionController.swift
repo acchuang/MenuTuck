@@ -460,10 +460,9 @@ final class SectionController: NSObject, ObservableObject {
                 )
                 entry.target = self
                 entry.representedObject = item
-                if let icon = NSRunningApplication(processIdentifier: item.pid)?.icon?.copy() as? NSImage {
-                    icon.size = NSSize(width: 16, height: 16)
-                    entry.image = icon
-                }
+                let icon = item.appIcon.copy() as! NSImage
+                icon.size = NSSize(width: 16, height: 16)
+                entry.image = icon
             }
             menu.addItem(.separator())
         }

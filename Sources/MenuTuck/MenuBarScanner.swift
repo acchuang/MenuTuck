@@ -24,6 +24,18 @@ struct MenuBarItem: Identifiable, Hashable {
     var storageKey: String {
         bundleID ?? appName
     }
+
+    /// Keyed by app, not PID: a relaunch brings a new PID but the same icon, so the number of apps bounds the cache.
+    private static var iconCache: [String: NSImage] = [:]
+
+    var appIcon: NSImage {
+        if let cached = Self.iconCache[storageKey] { return cached }
+        guard let icon = NSRunningApplication(processIdentifier: pid)?.icon else {
+            return NSImage(systemSymbolName: "app", accessibilityDescription: nil) ?? NSImage()
+        }
+        Self.iconCache[storageKey] = icon
+        return icon
+    }
 }
 
 /// Discovers active menu bar items via `AXUIElement` (`kAXExtrasMenuBarAttribute`).

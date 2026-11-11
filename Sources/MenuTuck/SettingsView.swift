@@ -288,8 +288,6 @@ private struct ItemRow: View {
     let onTrigger: () -> Void
     let onMove: (MenuSection) -> Void
 
-    private static var iconCache: [pid_t: NSImage] = [:]
-
     private var subtitleText: String? {
         let trimmed = item.detail.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty, trimmed != "MenuBarExtra", trimmed != item.appName {
@@ -303,7 +301,7 @@ private struct ItemRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(nsImage: Self.icon(for: item.pid))
+            Image(nsImage: item.appIcon)
                 .resizable()
                 .frame(width: 20, height: 20)
             VStack(alignment: .leading, spacing: 1) {
@@ -344,17 +342,6 @@ private struct ItemRow: View {
             .disabled(disabled)
         }
         .padding(.vertical, 2)
-    }
-
-    private static func icon(for pid: pid_t) -> NSImage {
-        if let cached = iconCache[pid] {
-            return cached
-        }
-        if let appIcon = NSRunningApplication(processIdentifier: pid)?.icon {
-            iconCache[pid] = appIcon
-            return appIcon
-        }
-        return NSImage(systemSymbolName: "app", accessibilityDescription: nil) ?? NSImage()
     }
 }
 
