@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.1.7)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.2.0)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -56,22 +56,16 @@
 
 ---
 
-## Unreleased (v0.2.0)
+## What's new in v0.2.0
 
 - **Tray.** Clicking `|‹` opens a panel of hidden icons below the menu bar instead of sliding them in, so nothing is pushed behind the notch. Keyboard-first: type to filter, `1`–`9` or arrows + Return to open, `Esc` to close.
 - **Live tile text.** Tiles show what the item itself reports (title, description or tooltip), falling back to the app name.
 - **Tile menu.** Right-click a tile to move it to Visible, Hidden or Always Hidden, quit the app, or show it in Finder.
 - **Reveal setting.** *General → Reveal* picks the Tray or the classic in-menu-bar reveal. Notched Macs default to the Tray.
 - **Steadier toggle.** The `|‹` icon keeps a fixed width, so flipping it never nudges its neighbours.
-
-## Unreleased (v0.2.1)
-
 - **Arrange board.** The Menu Bar Items tab is now three columns in menu bar order. Drag tiles between them, right-click to move, double-click to open a menu.
 - **Notch rescue.** A banner lists visible icons hidden behind the notch and moves them to Hidden in one click.
 - **Apps that aren't running.** Tucked apps that are closed show as grey tiles in the Tray. Clicking one launches the app.
-
-## Unreleased (v0.2.2)
-
 - **Simpler General tab.** Auto-hide is one choice (Never / 5 / 15 / 30 s) and also covers clicking outside the menu bar. Menu-bar-only options appear only in that reveal style.
 - **New onboarding.** Three steps: grant Accessibility, pick icons to tuck away, see them in the Tray.
 - **Dock badge dots.** Tray tiles show the app's unread count from the Dock.
