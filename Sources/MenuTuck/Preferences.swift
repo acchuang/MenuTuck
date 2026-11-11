@@ -19,6 +19,7 @@ final class Preferences: ObservableObject {
         static let lastPhysicalSections = "lastPhysicalSections"
         static let revealStyle = "revealStyle"
         static let didOnboard = "didOnboard"
+        static let openCounts = "openCounts"
     }
 
     enum RevealStyle: String {
@@ -136,5 +137,14 @@ final class Preferences: ObservableObject {
             }
         }
         return result
+    }
+
+    /// How often each item was opened, so the Tray can put favorites first.
+    var openCounts: [String: Int] { defaults.dictionary(forKey: Key.openCounts) as? [String: Int] ?? [:] }
+
+    func recordOpen(_ key: String) {
+        var counts = openCounts
+        counts[key, default: 0] += 1
+        defaults.set(counts, forKey: Key.openCounts)
     }
 }

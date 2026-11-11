@@ -203,6 +203,7 @@ final class ItemsModel: ObservableObject {
 
     func trigger(_ item: MenuBarItem) {
         guard item.isRunning else { return launchAndOpen(item) }
+        prefs.recordOpen(item.storageKey)
         checkTrust()
         guard isTrusted else {
             requestTrust()

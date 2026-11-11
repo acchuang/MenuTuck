@@ -12,6 +12,12 @@ final class TrayGridTests: XCTestCase {
         XCTAssertEqual(TrayGrid.tiles(from: items, query: "").map(\.appName), ["On", "AH", "Off"])
     }
 
+    func testMostOpenedComeFirstButRunningStillLeads() {
+        let items = [item("A", .hidden), item("B", .alwaysHidden), item("C", .hidden), item("Off", .hidden, pid: 0)]
+        let counts = ["B": 5, "C": 2, "Off": 9]
+        XCTAssertEqual(TrayGrid.tiles(from: items, query: "", openCounts: counts).map(\.appName), ["B", "C", "A", "Off"])
+    }
+
     func testTilesListHiddenThenAlwaysHiddenAndFilter() {
         let items = [item("A", .alwaysHidden), item("B", .visible), item("C", .hidden), item("D", .hidden, detail: "Battery 80%")]
         XCTAssertEqual(TrayGrid.tiles(from: items, query: "").map(\.appName), ["C", "D", "A"])

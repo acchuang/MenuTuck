@@ -5,12 +5,15 @@ import SwiftUI
 enum TrayGrid {
     static let columns = 5
 
-    /// Running before not running; within each, Hidden before Always Hidden, in bar order.
-    static func tiles(from items: [MenuBarItem], query: String) -> [MenuBarItem] {
-        func rank(_ item: MenuBarItem) -> Int { (item.isRunning ? 0 : 2) + (item.section == .hidden ? 0 : 1) }
+    /// Running before not running; within each, most opened first, then Hidden before Always Hidden, in bar order.
+    static func tiles(from items: [MenuBarItem], query: String, openCounts: [String: Int] = [:]) -> [MenuBarItem] {
+        func rank(_ entry: (offset: Int, element: MenuBarItem)) -> (Int, Int, Int, Int) {
+            let item = entry.element
+            return (item.isRunning ? 0 : 1, -(openCounts[item.storageKey] ?? 0), item.section == .hidden ? 0 : 1, entry.offset)
+        }
         return items.enumerated()
             .filter { $0.element.section != .visible && $0.element.matches(query) }
-            .sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }
+            .sorted { rank($0) < rank($1) }
             .map(\.element)
     }
 
@@ -129,7 +132,7 @@ final class TrayController: NSObject, NSWindowDelegate {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
-        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query)
+        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query, openCounts: Preferences.shared.openCounts)
         switch event.keyCode {
         case 53: // Esc
             close()
@@ -169,7 +172,7 @@ private struct TrayView: View {
     let open: (MenuBarItem) -> Void
 
     var body: some View {
-        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query)
+        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query, openCounts: Preferences.shared.openCounts)
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
