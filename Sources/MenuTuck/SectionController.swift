@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Carbon.HIToolbox
 import Combine
 
 /// Owns the MenuTuck status items (`|‹` / `|›` and `‖`) and drives native icon hiding.
@@ -25,8 +26,6 @@ final class SectionController: NSObject, ObservableObject {
     private var commandReleasedAt: Date = .distantPast
     private var globalFlagsMonitor: Any?
     private var localFlagsMonitor: Any?
-    private var globalKeyMonitor: Any?
-    private var localKeyMonitor: Any?
     private var outsideClickMonitor: Any?
     private var hoverMonitor: Any?
     private var hoverTimer: Timer?
@@ -65,12 +64,14 @@ final class SectionController: NSObject, ObservableObject {
         configureMonitors()
         startDividerPositionWatcher()
         syncHoverMonitor()
+        syncHotkeys()
         prefs.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 DispatchQueue.main.async {
                     self?.apply()
                     self?.syncHoverMonitor()
+                    self?.syncHotkeys()
                 }
             }
             .store(in: &cancellables)
@@ -276,29 +277,18 @@ final class SectionController: NSObject, ObservableObject {
     }
 
     private func configureMonitors() {
-        // ⌃⌥M (keyCode 46) toggles hidden icons.
-        let isHotkey: (NSEvent) -> Bool = { [weak self] event in
-            guard let self, self.prefs.enableGlobalHotkey else { return false }
-            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            return event.keyCode == 46 && flags == [.control, .option]
-        }
-        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if isHotkey(event) {
-                DispatchQueue.main.async { self?.toggle() }
-            }
-        }
-        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if isHotkey(event) {
-                self?.toggle()
-                return nil
-            }
-            return event
-        }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self, self.prefs.rehideOnOutsideClick, self.state != .collapsed else { return }
             if !Self.pointerIsInMenuBar() {
                 DispatchQueue.main.async { self.set(.collapsed) }
             }
+        }
+    }
+
+    /// ⌃⌥M (key code 46) toggles hidden icons.
+    private func syncHotkeys() {
+        Hotkeys.set(0, keyCode: prefs.enableGlobalHotkey ? 46 : nil, modifiers: UInt32(controlKey | optionKey)) { [weak self] in
+            self?.toggle()
         }
     }
 
