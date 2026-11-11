@@ -55,7 +55,7 @@
 
 ---
 
-## Unreleased
+## What's new in v0.1.7
 
 - **Hidden icons in the right-click menu.** Each hidden item is listed with its icon and name; clicking one opens it, including items pushed under the notch.
 - **Recordable shortcuts.** Toggle and Show All each take a shortcut you record in *General*. They are registered as system hot keys, so the keystroke no longer also reaches the front app.
