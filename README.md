@@ -43,7 +43,7 @@
   - Uses `MenuBarClientCore` (`MBAssessmentModeAssertion`) to hide and restore third-party menu bar icons in place, with no Screen Recording permission.
 - **Two Ways to Organize Icons**:
   - **In the Menu Bar**: Hold `⌘` and drag any icon to the left of `|‹` / `|›` to hide it, or to the left of `‖` to always hide it.
-  - **In Settings (`Menu Bar Items` tab)**: Assign any running menu bar app to **Visible**, **Hidden**, or **Always Hidden** with the section picker (accompanied by a live `[Always Hidden] ‖ [Hidden] |› [Visible]` layout bar), or click **Open Menu** to trigger its menu bar item remotely.
+  - **In Settings (`Menu Bar Items` tab)**: An Arrange board with three columns (**Always Hidden**, **Hidden**, **Visible**) in menu bar order. Drag a tile between columns or right-click it to move; double-click opens its menu. A banner offers to move icons the notch covers into Hidden.
 - **Quick Controls**:
   - **Left-click `|‹` / `|›`**: Open the Tray, or toggle Hidden icons in the menu bar (*General → Reveal*).
   - **Option-click (`⌥`-click) `|‹` / `|›` or click `‖`**: Show All icons in the menu bar (including Always Hidden).
@@ -51,7 +51,7 @@
 - **Tray (default on notched Macs)**: Hidden and Always Hidden icons appear as tiles in a panel below the menu bar, so nothing lands behind the notch. Each tile shows the app icon plus the item's own text (title, description or tooltip). Type to filter, arrows + Return or `1`–`9` to open, `Esc` to close. Right-click a tile to move it to another section, quit the app, or show it in Finder. No Screen Recording permission.
   - **Global Shortcuts**: Toggle Hidden icons from anywhere (`⌃⌥M` by default), plus an optional Show All shortcut. Both are recordable in Settings.
 - **Auto-Rehide & Launch at Login**:
-  - Automatically collapses hidden icons after a configurable delay (`3–60 s`) or when clicking outside the menu bar.
+  - Automatically collapses hidden icons after `5`, `15` or `30 s`, or when clicking outside the menu bar.
   - Native `SMAppService` Launch at Login support.
 
 ---
@@ -63,6 +63,20 @@
 - **Tile menu.** Right-click a tile to move it to Visible, Hidden or Always Hidden, quit the app, or show it in Finder.
 - **Reveal setting.** *General → Reveal* picks the Tray or the classic in-menu-bar reveal. Notched Macs default to the Tray.
 - **Steadier toggle.** The `|‹` icon keeps a fixed width, so flipping it never nudges its neighbours.
+
+## Unreleased (v0.2.1)
+
+- **Arrange board.** The Menu Bar Items tab is now three columns in menu bar order. Drag tiles between them, right-click to move, double-click to open a menu.
+- **Notch rescue.** A banner lists visible icons hidden behind the notch and moves them to Hidden in one click.
+- **Apps that aren't running.** Tucked apps that are closed show as grey tiles in the Tray. Clicking one launches the app.
+
+## Unreleased (v0.2.2)
+
+- **Simpler General tab.** Auto-hide is one choice (Never / 5 / 15 / 30 s) and also covers clicking outside the menu bar. Menu-bar-only options appear only in that reveal style.
+- **New onboarding.** Three steps: grant Accessibility, pick icons to tuck away, see them in the Tray.
+- **Dock badge dots.** Tray tiles show the app's unread count from the Dock.
+- **Peek.** Hold the toggle shortcut to show hidden icons; let go to hide them again.
+- **Smart order.** The items you open most come first in the Tray.
 
 ## What's new in v0.1.7
 
