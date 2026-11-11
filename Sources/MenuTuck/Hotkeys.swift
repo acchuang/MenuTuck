@@ -10,6 +10,7 @@ enum Hotkeys {
         let modifiers: UInt32
         let ref: EventHotKeyRef
         let action: () -> Void
+        let release: (() -> Void)?
     }
 
     private static var entries: [UInt32: Entry] = [:]
@@ -18,10 +19,15 @@ enum Hotkeys {
 
     /// Binds `id` to a key combo (Carbon modifier mask), replacing its previous combo. `keyCode: nil` unbinds it.
     /// Returns false when the system refuses the combo, e.g. another app already holds it.
+    /// `release` runs when the combo's key comes back up.
     @discardableResult
-    static func set(_ id: UInt32, keyCode: UInt32?, modifiers: UInt32 = 0, action: @escaping () -> Void = {}) -> Bool {
+    static func set(_ id: UInt32, keyCode: UInt32?, modifiers: UInt32 = 0,
+                    action: @escaping () -> Void = {}, release: (() -> Void)? = nil) -> Bool {
         if let old = entries[id] {
-            if old.keyCode == keyCode, old.modifiers == modifiers { return true }
+            if old.keyCode == keyCode, old.modifiers == modifiers {
+                entries[id] = Entry(keyCode: old.keyCode, modifiers: old.modifiers, ref: old.ref, action: action, release: release)
+                return true
+            }
             UnregisterEventHotKey(old.ref)
             entries[id] = nil
         }
@@ -32,14 +38,17 @@ enum Hotkeys {
             keyCode, modifiers, EventHotKeyID(signature: signature, id: id), GetEventDispatcherTarget(), 0, &ref
         )
         guard status == noErr, let ref else { return false }
-        entries[id] = Entry(keyCode: keyCode, modifiers: modifiers, ref: ref, action: action)
+        entries[id] = Entry(keyCode: keyCode, modifiers: modifiers, ref: ref, action: action, release: release)
         return true
     }
 
     private static func installHandler() {
         guard !handlerInstalled else { return }
         handlerInstalled = true
-        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        var specs = [
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased)),
+        ]
         InstallEventHandler(GetEventDispatcherTarget(), { _, event, _ in
             var pressed = EventHotKeyID()
             let status = GetEventParameter(
@@ -47,9 +56,13 @@ enum Hotkeys {
                 nil, MemoryLayout<EventHotKeyID>.size, nil, &pressed
             )
             guard status == noErr, pressed.signature == Hotkeys.signature else { return OSStatus(eventNotHandledErr) }
-            Hotkeys.entries[pressed.id]?.action()
+            if GetEventKind(event) == UInt32(kEventHotKeyReleased) {
+                Hotkeys.entries[pressed.id]?.release?()
+            } else {
+                Hotkeys.entries[pressed.id]?.action()
+            }
             return noErr
-        }, 1, &spec, nil, nil)
+        }, specs.count, &specs, nil, nil)
     }
 }
 

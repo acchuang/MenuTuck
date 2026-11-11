@@ -313,15 +313,37 @@ final class SectionController: NSObject, ObservableObject {
 
     private func syncHotkeys() {
         var refused = Set<UInt32>()
-        func bind(_ id: UInt32, _ shortcut: Shortcut?, _ action: @escaping () -> Void) {
-            if !Hotkeys.set(id, keyCode: shortcut?.keyCode, modifiers: shortcut?.modifiers ?? 0, action: action) {
+        func bind(_ id: UInt32, _ shortcut: Shortcut?, release: (() -> Void)? = nil, _ action: @escaping () -> Void) {
+            if !Hotkeys.set(id, keyCode: shortcut?.keyCode, modifiers: shortcut?.modifiers ?? 0, action: action, release: release) {
                 refused.insert(id)
             }
         }
-        bind(Self.toggleHotkeyID, prefs.toggleShortcut) { [weak self] in self?.reveal() }
+        // Peek: tap the toggle shortcut to reveal; hold it and the release hides again.
+        bind(Self.toggleHotkeyID, prefs.toggleShortcut, release: { [weak self] in self?.peekReleased() }) { [weak self] in self?.peekPressed() }
         bind(Self.showAllHotkeyID, prefs.showAllShortcut) { [weak self] in self?.toggleShowAll() }
         if refused != refusedHotkeys { refusedHotkeys = refused }
     }
+
+    private var peekStart: Date?
+
+    private func peekPressed() {
+        guard peekStart == nil else { return } // key repeat
+        peekStart = Date()
+        reveal()
+    }
+
+    private func peekReleased() {
+        guard let start = peekStart else { return }
+        peekStart = nil
+        guard Date().timeIntervalSince(start) > Self.peekHold else { return }
+        if prefs.revealStyle == .tray, tray != nil, state == .collapsed {
+            tray?.close()
+        } else {
+            set(.collapsed)
+        }
+    }
+
+    static let peekHold: TimeInterval = 0.4
 
     private func toggleShowAll() {
         set(state == .showAll ? .collapsed : .showAll)
