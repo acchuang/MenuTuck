@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sections = SectionController()
         model = ItemsModel(controller: sections)
         sections.onOpenSettings = { [weak self] in self?.openSettings() }
+        sections.tuckedItems = { [weak self] in self?.model.items.filter { $0.section != .visible } ?? [] }
+        sections.onOpenItem = { [weak self] in self?.model.trigger($0) }
         sections.onWillCollapse = { [weak self] in
             self?.model.syncBeforeCollapse()
         }

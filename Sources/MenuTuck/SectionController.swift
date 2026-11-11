@@ -43,6 +43,9 @@ final class SectionController: NSObject, ObservableObject {
     var onOpenSettings: (() -> Void)?
     var onLayoutChanged: (() -> Void)?
     var onWillCollapse: (() -> Void)?
+    /// Items outside the Visible section, left to right, for the right-click menu.
+    var tuckedItems: (() -> [MenuBarItem])?
+    var onOpenItem: ((MenuBarItem) -> Void)?
 
     override init() {
         // Ensure AppKit does not restore a stale `Visible = 0` / `VisibleCC = 0` from UserDefaults.
@@ -431,6 +434,26 @@ final class SectionController: NSObject, ObservableObject {
         showAll.target = self
         showAll.isEnabled = state != .showAll
         menu.addItem(.separator())
+        // Lists tucked icons by name so one stays reachable even when the notch leaves no room to show it.
+        let tucked = tuckedItems?() ?? []
+        if !tucked.isEmpty {
+            menu.addItem(.sectionHeader(title: "Hidden Icons"))
+            let names = tucked.map(\.appName)
+            for item in tucked {
+                let shared = names.filter { $0 == item.appName }.count > 1 && !item.detail.isEmpty
+                let entry = menu.addItem(
+                    withTitle: shared ? "\(item.appName) — \(item.detail)" : item.appName,
+                    action: #selector(menuOpenItem(_:)), keyEquivalent: ""
+                )
+                entry.target = self
+                entry.representedObject = item
+                if let icon = NSRunningApplication(processIdentifier: item.pid)?.icon?.copy() as? NSImage {
+                    icon.size = NSSize(width: 16, height: 16)
+                    entry.image = icon
+                }
+            }
+            menu.addItem(.separator())
+        }
         menu.addItem(withTitle: "Settings…", action: #selector(menuSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "Check for Updates…", action: #selector(menuCheckUpdates), keyEquivalent: "").target = self
         menu.addItem(.separator())
@@ -443,6 +466,9 @@ final class SectionController: NSObject, ObservableObject {
 
     @objc private func menuToggle() { toggle() }
     @objc private func menuShowAll() { set(.showAll) }
+    @objc private func menuOpenItem(_ sender: NSMenuItem) {
+        if let item = sender.representedObject as? MenuBarItem { onOpenItem?(item) }
+    }
     @objc private func menuSettings() { onOpenSettings?() }
     @objc private func menuCheckUpdates() { UpdateChecker.run() }
 }
