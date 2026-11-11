@@ -47,13 +47,22 @@
 - **Quick Controls**:
   - **Left-click `|‹` / `|›`**: Toggle Hidden icons.
   - **Option-click (`⌥`-click) `|‹` / `|›` or click `‖`**: Show All icons (including Always Hidden).
-  - **Right-click `|‹` / `|›`**: Open the quick menu (*Show/Hide Icons*, *Show All Icons*, *Settings…*, *Check for Updates…*, *Quit*).
+  - **Right-click `|‹` / `|›`**: Open the quick menu (*Show/Hide Icons*, *Show All Icons*, a *Hidden Icons* list you can click to open any hidden item, *Settings…*, *Check for Updates…*, *Quit*).
   - **Global Shortcuts**: Toggle Hidden icons from anywhere (`⌃⌥M` by default), plus an optional Show All shortcut. Both are recordable in Settings.
 - **Auto-Rehide & Launch at Login**:
   - Automatically collapses hidden icons after a configurable delay (`3–60 s`) or when clicking outside the menu bar.
   - Native `SMAppService` Launch at Login support.
 
 ---
+
+## Unreleased
+
+- **Hidden icons in the right-click menu.** Each hidden item is listed with its icon and name; clicking one opens it, including items pushed under the notch.
+- **Recordable shortcuts.** Toggle and Show All each take a shortcut you record in *General*. They are registered as system hot keys, so the keystroke no longer also reaches the front app.
+- **New apps go to Visible or Hidden.** *General → New apps go to* decides where an app lands the first time MenuTuck sees it.
+- **Auto-hide waits for you.** The timer no longer collapses while the pointer is in the menu bar or a MenuTuck window is open.
+- **Hover reveal ends on exit.** A reveal that came from hovering collapses when the pointer leaves the menu bar, unless you clicked something first.
+- **VoiceOver labels** on `|›` and `‖`, and the version plus *Check for Updates…* in *General*.
 
 ## What's new in v0.1.6
 
