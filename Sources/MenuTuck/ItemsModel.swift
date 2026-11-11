@@ -30,6 +30,23 @@ final class ItemsModel: ObservableObject {
         }
     }
 
+    /// Live items plus tucked apps that aren't running, which the Tray shows as grey tiles.
+    var trayCandidates: [MenuBarItem] {
+        let listed = Set(items.map(\.storageKey))
+        let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
+        let offline = prefs.bundleIDs(in: [.hidden, .alwaysHidden]).subtracting(listed).subtracting(running).sorted()
+            .compactMap { id -> MenuBarItem? in
+                guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return nil }
+                return MenuBarItem(
+                    id: "offline:\(id)", pid: 0, childIndex: 0,
+                    appName: url.deletingPathExtension().lastPathComponent, bundleID: id,
+                    detail: "Not running", frame: .zero, isFromAX: false,
+                    section: prefs.sectionOverride(for: id) ?? .hidden
+                )
+            }
+        return items + offline
+    }
+
     // MARK: - Permission
 
     func checkTrust() {
@@ -173,6 +190,7 @@ final class ItemsModel: ObservableObject {
     // MARK: - Trigger
 
     func trigger(_ item: MenuBarItem) {
+        guard item.isRunning else { return launchAndOpen(item) }
         checkTrust()
         guard isTrusted else {
             requestTrust()
@@ -192,6 +210,31 @@ final class ItemsModel: ObservableObject {
                     self.lastError = "Could not open \(item.appName) via Accessibility."
                 }
             }
+        }
+    }
+
+    private func launchAndOpen(_ item: MenuBarItem) {
+        guard let url = item.appURL else { return }
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = false
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { [weak self] _, error in
+            DispatchQueue.main.async {
+                if let error {
+                    self?.lastError = "Could not launch \(item.appName): \(error.localizedDescription)"
+                } else {
+                    self?.openWhenListed(item.storageKey, tries: 10)
+                }
+            }
+        }
+    }
+
+    /// A freshly launched app takes a moment to put up its status item.
+    private func openWhenListed(_ key: String, tries: Int) {
+        if let live = items.first(where: { $0.storageKey == key }) { return trigger(live) }
+        guard tries > 0 else { return }
+        refresh()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            self?.openWhenListed(key, tries: tries - 1)
         }
     }
 

@@ -32,12 +32,21 @@ struct MenuBarItem: Identifiable, Hashable {
             || detail.localizedCaseInsensitiveContains(query)
     }
 
+    /// False for a stand-in for a tucked app that isn't running (see `ItemsModel.notRunningTucked`).
+    var isRunning: Bool { pid != 0 }
+
+    var appURL: URL? {
+        NSRunningApplication(processIdentifier: pid)?.bundleURL
+            ?? bundleID.flatMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+    }
+
     /// Keyed by app, not PID: a relaunch brings a new PID but the same icon, so the number of apps bounds the cache.
     private static var iconCache: [String: NSImage] = [:]
 
     var appIcon: NSImage {
         if let cached = Self.iconCache[storageKey] { return cached }
-        guard let icon = NSRunningApplication(processIdentifier: pid)?.icon else {
+        guard let icon = NSRunningApplication(processIdentifier: pid)?.icon
+                ?? appURL.map({ NSWorkspace.shared.icon(forFile: $0.path) }) else {
             return NSImage(systemSymbolName: "app", accessibilityDescription: nil) ?? NSImage()
         }
         Self.iconCache[storageKey] = icon

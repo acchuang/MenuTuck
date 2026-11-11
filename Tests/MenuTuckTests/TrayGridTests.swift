@@ -2,9 +2,14 @@ import XCTest
 @testable import MenuTuck
 
 final class TrayGridTests: XCTestCase {
-    private func item(_ name: String, _ section: MenuSection, detail: String = "") -> MenuBarItem {
-        MenuBarItem(id: name, pid: 1, childIndex: 0, appName: name, bundleID: nil, detail: detail,
+    private func item(_ name: String, _ section: MenuSection, detail: String = "", pid: pid_t = 1) -> MenuBarItem {
+        MenuBarItem(id: name, pid: pid, childIndex: 0, appName: name, bundleID: nil, detail: detail,
                     frame: .zero, isFromAX: true, section: section)
+    }
+
+    func testNotRunningAppsComeLast() {
+        let items = [item("Off", .hidden, pid: 0), item("AH", .alwaysHidden), item("On", .hidden)]
+        XCTAssertEqual(TrayGrid.tiles(from: items, query: "").map(\.appName), ["On", "AH", "Off"])
     }
 
     func testTilesListHiddenThenAlwaysHiddenAndFilter() {

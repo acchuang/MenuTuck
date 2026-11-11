@@ -5,10 +5,13 @@ import SwiftUI
 enum TrayGrid {
     static let columns = 5
 
-    /// Hidden first, then Always Hidden, each left to right as they sit in the bar.
+    /// Running before not running; within each, Hidden before Always Hidden, in bar order.
     static func tiles(from items: [MenuBarItem], query: String) -> [MenuBarItem] {
-        let tucked = items.filter { $0.section != .visible && $0.matches(query) }
-        return tucked.filter { $0.section == .hidden } + tucked.filter { $0.section == .alwaysHidden }
+        func rank(_ item: MenuBarItem) -> Int { (item.isRunning ? 0 : 2) + (item.section == .hidden ? 0 : 1) }
+        return items.enumerated()
+            .filter { $0.element.section != .visible && $0.element.matches(query) }
+            .sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }
+            .map(\.element)
     }
 
     /// Arrow-key move in a grid of `count` tiles. Stays put at an edge.
@@ -126,7 +129,7 @@ final class TrayController: NSObject, NSWindowDelegate {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
-        let tiles = TrayGrid.tiles(from: model.items, query: state.query)
+        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query)
         switch event.keyCode {
         case 53: // Esc
             close()
@@ -166,7 +169,7 @@ private struct TrayView: View {
     let open: (MenuBarItem) -> Void
 
     var body: some View {
-        let tiles = TrayGrid.tiles(from: model.items, query: state.query)
+        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query)
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
@@ -204,6 +207,8 @@ private struct TrayView: View {
             Image(nsImage: item.appIcon)
                 .resizable()
                 .frame(width: 32, height: 32)
+                .saturation(item.isRunning ? 1 : 0)
+                .opacity(item.isRunning ? 1 : 0.55)
             Text(item.appName)
                 .font(.caption)
                 .lineLimit(1)
@@ -244,15 +249,17 @@ private struct TrayView: View {
 
     @ViewBuilder
     private func menu(for item: MenuBarItem) -> some View {
-        Button("Open Menu") { open(item) }
+        Button(item.isRunning ? "Open Menu" : "Open \(item.appName)") { open(item) }
         Divider()
         ForEach(MenuSection.allCases.filter { $0 != item.section && ($0 != .alwaysHidden || prefs.alwaysHiddenEnabled) }) { section in
             Button("Move to \(section.title)") { model.move(item, to: section) }
         }
         Divider()
-        if let url = NSRunningApplication(processIdentifier: item.pid)?.bundleURL {
+        if let url = item.appURL {
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
         }
-        Button("Quit \(item.appName)") { NSRunningApplication(processIdentifier: item.pid)?.terminate() }
+        if item.isRunning {
+            Button("Quit \(item.appName)") { NSRunningApplication(processIdentifier: item.pid)?.terminate() }
+        }
     }
 }
