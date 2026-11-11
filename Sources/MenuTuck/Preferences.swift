@@ -12,6 +12,8 @@ final class Preferences: ObservableObject {
         static let alwaysHiddenEnabled = "alwaysHiddenEnabled"
         static let showDividers = "showDividers"
         static let enableGlobalHotkey = "enableGlobalHotkey"
+        static let toggleShortcut = "toggleShortcut"
+        static let showAllShortcut = "showAllShortcut"
         static let hoverReveal = "hoverReveal"
         static let sectionOverrides = "sectionOverrides"
         static let lastPhysicalSections = "lastPhysicalSections"
@@ -32,9 +34,17 @@ final class Preferences: ObservableObject {
     @Published var alwaysHiddenEnabled: Bool { didSet { defaults.set(alwaysHiddenEnabled, forKey: Key.alwaysHiddenEnabled) } }
     /// Draw a thin divider between sections when they are expanded.
     @Published var showDividers: Bool { didSet { defaults.set(showDividers, forKey: Key.showDividers) } }
-    /// Enable the ⌃⌥M global shortcut to toggle hidden icons.
-    @Published var enableGlobalHotkey: Bool {
-        didSet { defaults.set(enableGlobalHotkey, forKey: Key.enableGlobalHotkey) }
+    /// Global shortcut that toggles hidden icons; nil when cleared. Clearing also writes the legacy
+    /// on/off flag, which is what tells a cleared shortcut apart from one never customized (⌃⌥M).
+    @Published var toggleShortcut: Shortcut? {
+        didSet {
+            defaults.set(toggleShortcut?.plist, forKey: Key.toggleShortcut)
+            defaults.set(toggleShortcut != nil, forKey: Key.enableGlobalHotkey)
+        }
+    }
+    /// Global shortcut that shows every icon, Always Hidden included. Unset by default.
+    @Published var showAllShortcut: Shortcut? {
+        didSet { defaults.set(showAllShortcut?.plist, forKey: Key.showAllShortcut) }
     }
     /// Expand the hidden section when the pointer rests on the `|›` toggle. Off by default: it needs a global mouse monitor.
     @Published var hoverReveal: Bool { didSet { defaults.set(hoverReveal, forKey: Key.hoverReveal) } }
@@ -57,7 +67,12 @@ final class Preferences: ObservableObject {
         rehideOnOutsideClick = defaults.bool(forKey: Key.rehideOnOutsideClick)
         alwaysHiddenEnabled = defaults.bool(forKey: Key.alwaysHiddenEnabled)
         showDividers = defaults.bool(forKey: Key.showDividers)
-        enableGlobalHotkey = defaults.bool(forKey: Key.enableGlobalHotkey)
+        if !defaults.bool(forKey: Key.enableGlobalHotkey) {
+            toggleShortcut = nil
+        } else {
+            toggleShortcut = defaults.dictionary(forKey: Key.toggleShortcut).flatMap(Shortcut.init(plist:)) ?? .defaultToggle
+        }
+        showAllShortcut = defaults.dictionary(forKey: Key.showAllShortcut).flatMap(Shortcut.init(plist:))
         hoverReveal = defaults.bool(forKey: Key.hoverReveal)
         sectionOverrides = (defaults.dictionary(forKey: Key.sectionOverrides) as? [String: String]) ?? [:]
         lastPhysicalSections = (defaults.dictionary(forKey: Key.lastPhysicalSections) as? [String: String]) ?? [:]

@@ -1,3 +1,4 @@
+import AppKit
 import Carbon.HIToolbox
 
 /// System-wide shortcuts through Carbon hot keys. Unlike a global `NSEvent` monitor, the key press is
@@ -49,5 +50,53 @@ enum Hotkeys {
             Hotkeys.entries[pressed.id]?.action()
             return noErr
         }, 1, &spec, nil, nil)
+    }
+}
+
+/// A recorded key combo. `modifiers` is a Carbon mask; `key` is the name shown in Settings.
+struct Shortcut: Equatable {
+    var keyCode: UInt32
+    var modifiers: UInt32
+    var key: String
+
+    static let defaultToggle = Shortcut(keyCode: UInt32(kVK_ANSI_M), modifiers: UInt32(controlKey | optionKey), key: "M")
+
+    private static let namedKeys: [Int: String] = [
+        kVK_Space: "Space", kVK_Return: "↩", kVK_Tab: "⇥", kVK_Delete: "⌫", kVK_ForwardDelete: "⌦",
+        kVK_LeftArrow: "←", kVK_RightArrow: "→", kVK_DownArrow: "↓", kVK_UpArrow: "↑",
+        kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4", kVK_F5: "F5", kVK_F6: "F6",
+        kVK_F7: "F7", kVK_F8: "F8", kVK_F9: "F9", kVK_F10: "F10", kVK_F11: "F11", kVK_F12: "F12",
+    ]
+
+    /// "⌃⌥M", modifiers in the order macOS menus draw them.
+    var label: String {
+        let symbols = [(controlKey, "⌃"), (optionKey, "⌥"), (shiftKey, "⇧"), (cmdKey, "⌘")]
+        return symbols.filter { modifiers & UInt32($0.0) != 0 }.map(\.1).joined() + key
+    }
+
+    var plist: [String: Any] { ["keyCode": Int(keyCode), "modifiers": Int(modifiers), "key": key] }
+}
+
+extension Shortcut {
+    init?(plist: [String: Any]) {
+        guard let keyCode = plist["keyCode"] as? Int, let modifiers = plist["modifiers"] as? Int,
+              let key = plist["key"] as? String, !key.isEmpty else { return nil }
+        self.init(keyCode: UInt32(keyCode), modifiers: UInt32(modifiers), key: key)
+    }
+
+    /// Nil unless ⌃, ⌥ or ⌘ is held: a bare or Shift-only key would swallow ordinary typing system-wide.
+    init?(event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        var modifiers = 0
+        if flags.contains(.control) { modifiers |= controlKey }
+        if flags.contains(.option) { modifiers |= optionKey }
+        if flags.contains(.shift) { modifiers |= shiftKey }
+        if flags.contains(.command) { modifiers |= cmdKey }
+        guard modifiers & (controlKey | optionKey | cmdKey) != 0 else { return nil }
+        let typed = event.charactersIgnoringModifiers?.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        // Keys with no printable name (Home, Page Up, …) report private-use characters; refuse them.
+        guard let key = Self.namedKeys[Int(event.keyCode)] ?? typed, let first = key.unicodeScalars.first,
+              !(0xF700...0xF8FF).contains(first.value) else { return nil }
+        self.init(keyCode: UInt32(event.keyCode), modifiers: UInt32(modifiers), key: key)
     }
 }

@@ -16,7 +16,12 @@ final class SectionController: NSObject, ObservableObject {
 
     private var alwaysHiddenConstraint: NSLayoutConstraint?
 
+    static let toggleHotkeyID: UInt32 = 0
+    static let showAllHotkeyID: UInt32 = 1
+
     @Published private(set) var state: BarState = .collapsed
+    /// Hot key IDs the system refused to register, usually because another app holds the combo.
+    @Published private(set) var refusedHotkeys: Set<UInt32> = []
     private var rehideTimer: Timer?
     private var dividerPollTimer: Timer?
     private var lastObservedToggleX: CGFloat?
@@ -285,11 +290,20 @@ final class SectionController: NSObject, ObservableObject {
         }
     }
 
-    /// ⌃⌥M (key code 46) toggles hidden icons.
     private func syncHotkeys() {
-        Hotkeys.set(0, keyCode: prefs.enableGlobalHotkey ? 46 : nil, modifiers: UInt32(controlKey | optionKey)) { [weak self] in
-            self?.toggle()
+        var refused = Set<UInt32>()
+        func bind(_ id: UInt32, _ shortcut: Shortcut?, _ action: @escaping () -> Void) {
+            if !Hotkeys.set(id, keyCode: shortcut?.keyCode, modifiers: shortcut?.modifiers ?? 0, action: action) {
+                refused.insert(id)
+            }
         }
+        bind(Self.toggleHotkeyID, prefs.toggleShortcut) { [weak self] in self?.toggle() }
+        bind(Self.showAllHotkeyID, prefs.showAllShortcut) { [weak self] in self?.toggleShowAll() }
+        if refused != refusedHotkeys { refusedHotkeys = refused }
+    }
+
+    private func toggleShowAll() {
+        set(state == .showAll ? .collapsed : .showAll)
     }
 
     /// Installs the global mouse monitor only while "reveal on hover" is on, so it costs nothing otherwise.
@@ -401,7 +415,7 @@ final class SectionController: NSObject, ObservableObject {
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
             showMenu()
         } else if event?.modifierFlags.contains(.option) == true {
-            set(state == .showAll ? .collapsed : .showAll)
+            toggleShowAll()
         } else if sender === alwaysHiddenDivider.button {
             set(state == .showAll ? .expanded : .showAll)
         } else {

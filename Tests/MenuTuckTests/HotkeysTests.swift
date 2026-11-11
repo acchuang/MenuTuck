@@ -12,4 +12,12 @@ final class HotkeysTests: XCTestCase {
         XCTAssertTrue(Hotkeys.set(99, keyCode: nil))
         XCTAssertTrue(Hotkeys.set(98, keyCode: nil))
     }
+
+    func testShortcutLabelAndPlistRoundTrip() {
+        XCTAssertEqual(Shortcut.defaultToggle.label, "⌃⌥M")
+        let all = Shortcut(keyCode: UInt32(kVK_F5), modifiers: UInt32(cmdKey | shiftKey | controlKey | optionKey), key: "F5")
+        XCTAssertEqual(all.label, "⌃⌥⇧⌘F5")
+        XCTAssertEqual(Shortcut(plist: all.plist), all)
+        XCTAssertNil(Shortcut(plist: ["keyCode": 1]))
+    }
 }

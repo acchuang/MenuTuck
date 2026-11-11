@@ -11,7 +11,7 @@ struct SettingsView: View {
         TabView {
             ItemsTab(prefs: prefs, sections: sections, model: model)
                 .tabItem { Label("Menu Bar Items", systemImage: "menubar.rectangle") }
-            GeneralTab(prefs: prefs)
+            GeneralTab(prefs: prefs, sections: sections)
                 .tabItem { Label("General", systemImage: "gearshape") }
         }
         .padding(.top, 8)
@@ -362,6 +362,7 @@ private struct ItemRow: View {
 
 private struct GeneralTab: View {
     @ObservedObject var prefs: Preferences
+    @ObservedObject var sections: SectionController
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -396,7 +397,14 @@ private struct GeneralTab: View {
             }
 
             Section("Shortcuts & Startup") {
-                Toggle("Global shortcut (⌃⌥M) to toggle hidden icons", isOn: $prefs.enableGlobalHotkey)
+                ShortcutRecorder(
+                    title: "Toggle hidden icons", shortcut: $prefs.toggleShortcut, taken: prefs.showAllShortcut,
+                    refused: sections.refusedHotkeys.contains(SectionController.toggleHotkeyID)
+                )
+                ShortcutRecorder(
+                    title: "Show all icons", shortcut: $prefs.showAllShortcut, taken: prefs.toggleShortcut,
+                    refused: sections.refusedHotkeys.contains(SectionController.showAllHotkeyID)
+                )
                 Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
                 if let loginError {
                     Text(loginError).font(.caption).foregroundStyle(.red)
@@ -425,5 +433,59 @@ private struct GeneralTab: View {
             loginError = error.localizedDescription
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
+    }
+}
+
+/// A row that records a global shortcut: click, press the combo. Esc cancels, the × button clears.
+private struct ShortcutRecorder: View {
+    let title: String
+    @Binding var shortcut: Shortcut?
+    /// The other row's combo, which this one may not reuse.
+    let taken: Shortcut?
+    let refused: Bool
+    @State private var monitor: Any?
+
+    var body: some View {
+        LabeledContent(title) {
+            HStack(spacing: 6) {
+                if refused {
+                    Label("In use by another app", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+                Button(monitor != nil ? "Press shortcut…" : shortcut?.label ?? "Record Shortcut") {
+                    monitor == nil ? start() : stop()
+                }
+                .frame(minWidth: 120)
+                .accessibilityLabel("\(title) shortcut")
+                .accessibilityValue(monitor != nil ? "Recording" : shortcut?.label ?? "None")
+                if shortcut != nil {
+                    Button { shortcut = nil } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Clear \(title) shortcut")
+                }
+            }
+        }
+        .onDisappear(perform: stop)
+    }
+
+    private func start() {
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { // Esc
+                stop()
+            } else if let recorded = Shortcut(event: event), recorded != taken {
+                shortcut = recorded
+                stop()
+            } else {
+                NSSound.beep()
+            }
+            return nil
+        }
+    }
+
+    private func stop() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
     }
 }

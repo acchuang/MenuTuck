@@ -48,7 +48,7 @@
   - **Left-click `|‹` / `|›`**: Toggle Hidden icons.
   - **Option-click (`⌥`-click) `|‹` / `|›` or click `‖`**: Show All icons (including Always Hidden).
   - **Right-click `|‹` / `|›`**: Open the quick menu (*Show/Hide Icons*, *Show All Icons*, *Settings…*, *Check for Updates…*, *Quit*).
-  - **Global Shortcut (`⌃⌥M`)**: Toggle Hidden icons from anywhere.
+  - **Global Shortcuts**: Toggle Hidden icons from anywhere (`⌃⌥M` by default), plus an optional Show All shortcut. Both are recordable in Settings.
 - **Auto-Rehide & Launch at Login**:
   - Automatically collapses hidden icons after a configurable delay (`3–60 s`) or when clicking outside the menu bar.
   - Native `SMAppService` Launch at Login support.

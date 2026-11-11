@@ -52,7 +52,7 @@ struct OnboardingPermissionView: View {
 
                 OnboardingStepRow(
                     symbol: "menubar.rectangle",
-                    title: "Click |‹ in the menu bar (or press ⌃⌥M) to expand",
+                    title: "Click |‹ in the menu bar\(Preferences.shared.toggleShortcut.map { " (or press \($0.label))" } ?? "") to expand",
                     detail: "Expanding reveals your Hidden icons along with the |› and ‖ section dividers."
                 )
                 OnboardingStepRow(
