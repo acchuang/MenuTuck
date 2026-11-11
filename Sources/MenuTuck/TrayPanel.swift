@@ -34,6 +34,33 @@ enum TrayGrid {
 final class TrayState: ObservableObject {
     @Published var query = ""
     @Published var selection = 0
+    /// Dock badge text ("3", "!") by bundle ID.
+    @Published var badges: [String: String] = [:]
+}
+
+enum DockBadges {
+    /// Reads each Dock item's badge through Accessibility. Empty if the Dock isn't reachable.
+    static func read() -> [String: String] {
+        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return [:] }
+        func children(_ element: AXUIElement) -> [AXUIElement] {
+            var value: CFTypeRef?
+            AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &value)
+            return value as? [AXUIElement] ?? []
+        }
+        var result: [String: String] = [:]
+        for list in children(AXUIElementCreateApplication(dock.processIdentifier)) {
+            for item in children(list) {
+                var label: CFTypeRef?
+                var url: CFTypeRef?
+                AXUIElementCopyAttributeValue(item, "AXStatusLabel" as CFString, &label)
+                AXUIElementCopyAttributeValue(item, kAXURLAttribute as CFString, &url)
+                guard let text = label as? String, !text.isEmpty,
+                      let url = url as? URL, let id = Bundle(url: url)?.bundleIdentifier else { continue }
+                result[id] = text
+            }
+        }
+        return result
+    }
 }
 
 private final class TrayPanel: NSPanel {
@@ -75,6 +102,10 @@ final class TrayController: NSObject, NSWindowDelegate {
         state.selection = 0
         // ponytail: full AX rescan per open keeps tile text live; scan only tucked PIDs if it ever lags.
         model.refresh()
+        DispatchQueue.global(qos: .userInitiated).async { [state] in
+            let badges = DockBadges.read()
+            DispatchQueue.main.async { state.badges = badges }
+        }
 
         let view = TrayView(model: model, prefs: .shared, state: state) { [weak self] in self?.openItem($0) }
         let panel = TrayPanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
@@ -204,6 +235,10 @@ private struct TrayView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 
+    private func badge(_ item: MenuBarItem) -> String? {
+        item.bundleID.flatMap { state.badges[$0] }
+    }
+
     private func tile(_ item: MenuBarItem, index: Int) -> some View {
         let subtitle = item.detail == item.appName ? "" : item.detail
         return VStack(spacing: 3) {
@@ -212,6 +247,11 @@ private struct TrayView: View {
                 .frame(width: 32, height: 32)
                 .saturation(item.isRunning ? 1 : 0)
                 .opacity(item.isRunning ? 1 : 0.55)
+                .overlay(alignment: .topTrailing) {
+                    if badge(item) != nil {
+                        Circle().fill(.red).frame(width: 9, height: 9).offset(x: 3, y: -2)
+                    }
+                }
             Text(item.appName)
                 .font(.caption)
                 .lineLimit(1)
@@ -244,7 +284,7 @@ private struct TrayView: View {
         .onHover { if $0 { state.selection = index } }
         .help(item.detail.isEmpty ? item.appName : "\(item.appName) — \(item.detail)")
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(subtitle.isEmpty ? item.appName : "\(item.appName), \(subtitle)")
+        .accessibilityLabel([item.appName, subtitle, badge(item).map { "badge \($0)" } ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { open(item) }
         .contextMenu { menu(for: item) }
