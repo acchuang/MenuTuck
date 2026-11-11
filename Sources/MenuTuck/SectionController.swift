@@ -36,6 +36,8 @@ final class SectionController: NSObject, ObservableObject {
     private var hoverTimer: Timer?
     private var hoverFrame: CGRect?
     private var hoverFrameAt: Date = .distantPast
+    /// The current reveal came from hovering and nothing was clicked since, so it ends when the pointer leaves the bar.
+    private var revealedByHover = false
     private var cancellables = Set<AnyCancellable>()
     private let prefs = Preferences.shared
     private let hider = MenuBarHider.shared
@@ -105,6 +107,7 @@ final class SectionController: NSObject, ObservableObject {
 
     func set(_ newState: BarState) {
         let wasExpanded = (state != .collapsed)
+        revealedByHover = false
         state = newState
         if newState == .collapsed, wasExpanded {
             onWillCollapse?()
@@ -286,7 +289,10 @@ final class SectionController: NSObject, ObservableObject {
 
     private func configureMonitors() {
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            guard let self, self.prefs.rehideOnOutsideClick, self.state != .collapsed else { return }
+            guard let self else { return }
+            // A click may have opened a hidden icon's menu; collapsing on pointer exit would close it.
+            self.revealedByHover = false
+            guard self.prefs.rehideOnOutsideClick, self.state != .collapsed else { return }
             if !Self.pointerIsInMenuBar() {
                 DispatchQueue.main.async { self.set(.collapsed) }
             }
@@ -326,7 +332,11 @@ final class SectionController: NSObject, ObservableObject {
     }
 
     private func handleMouseMoved() {
-        guard state == .collapsed else { return cancelHover() }
+        guard state == .collapsed else {
+            cancelHover()
+            if revealedByHover, !Self.pointerIsInMenuBar() { set(.collapsed) }
+            return
+        }
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         let mouse = NSEvent.mouseLocation
         let point = CGPoint(x: mouse.x, y: primaryHeight - mouse.y)
@@ -340,8 +350,11 @@ final class SectionController: NSObject, ObservableObject {
         guard let frame = hoverFrame, frame.insetBy(dx: -2, dy: 0).contains(point) else { return cancelHover() }
         guard hoverTimer == nil else { return }
         hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
-            self?.hoverTimer = nil
-            if self?.state == .collapsed { self?.set(.expanded) }
+            guard let self else { return }
+            self.hoverTimer = nil
+            guard self.state == .collapsed else { return }
+            self.set(.expanded)
+            self.revealedByHover = true
         }
     }
 
