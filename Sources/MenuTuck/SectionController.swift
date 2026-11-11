@@ -180,8 +180,23 @@ final class SectionController: NSObject, ObservableObject {
         rehideTimer = nil
         guard state != .collapsed, prefs.autoHide else { return }
         rehideTimer = Timer.scheduledTimer(withTimeInterval: prefs.autoHideDelay, repeats: false) { [weak self] _ in
-            self?.set(.collapsed)
+            guard let self else { return }
+            // Don't pull icons out from under the pointer or while Settings is in use; wait another round.
+            if Self.pointerIsInMenuBar() || NSApp.keyWindow != nil {
+                self.scheduleRehide()
+            } else {
+                self.set(.collapsed)
+            }
         }
+    }
+
+    /// The bar's height varies (30 pt on an external display, 38 pt on a notched one); 36 is the
+    /// floor for an auto-hiding bar, where `visibleFrame` reports none.
+    private static func pointerIsInMenuBar() -> Bool {
+        let mouse = NSEvent.mouseLocation
+        // The screen under the pointer, not NSScreen.main (the key-window screen).
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main else { return true }
+        return screen.frame.maxY - mouse.y <= max(36, screen.frame.maxY - screen.visibleFrame.maxY)
     }
 
     // MARK: - Layout (for the item scanner / mover)
@@ -281,15 +296,7 @@ final class SectionController: NSObject, ObservableObject {
         }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self, self.prefs.rehideOnOutsideClick, self.state != .collapsed else { return }
-            let mouse = NSEvent.mouseLocation
-            // The screen under the click, not NSScreen.main (the key-window screen).
-            let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
-            let screenMaxY = screen?.frame.maxY ?? 0
-            // Collapse only when clicking below the menu bar. Its height varies (30 pt on an
-            // external display, 38 pt on a notched one); 36 is the floor for auto-hide, where
-            // visibleFrame reports no bar.
-            let band = max(36, screen.map { $0.frame.maxY - $0.visibleFrame.maxY } ?? 0)
-            if screenMaxY - mouse.y > band {
+            if !Self.pointerIsInMenuBar() {
                 DispatchQueue.main.async { self.set(.collapsed) }
             }
         }
