@@ -411,6 +411,11 @@ private struct GeneralTab: View {
                 }
             }
 
+            Section("About") {
+                LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev build")
+                Button("Check for Updates…") { UpdateChecker.run() }
+            }
+
             Section("Quick Reference") {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("• Click |‹ in the menu bar to expand and show Hidden icons.")
