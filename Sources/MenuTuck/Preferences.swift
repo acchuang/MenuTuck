@@ -15,6 +15,7 @@ final class Preferences: ObservableObject {
         static let toggleShortcut = "toggleShortcut"
         static let showAllShortcut = "showAllShortcut"
         static let hoverReveal = "hoverReveal"
+        static let newAppSection = "newAppSection"
         static let sectionOverrides = "sectionOverrides"
         static let lastPhysicalSections = "lastPhysicalSections"
     }
@@ -48,6 +49,10 @@ final class Preferences: ObservableObject {
     }
     /// Expand the hidden section when the pointer rests on the `|›` toggle. Off by default: it needs a global mouse monitor.
     @Published var hoverReveal: Bool { didSet { defaults.set(hoverReveal, forKey: Key.hoverReveal) } }
+    /// Where an app seen for the first time goes; nil leaves it where its icon lands in the menu bar.
+    @Published var newAppSection: MenuSection? {
+        didSet { defaults.set(newAppSection?.rawValue, forKey: Key.newAppSection) }
+    }
     /// Saved per-bundleID section assignments (`bundleID -> MenuSection.rawValue`).
     @Published var sectionOverrides: [String: String] {
         didSet { defaults.set(sectionOverrides, forKey: Key.sectionOverrides) }
@@ -74,6 +79,7 @@ final class Preferences: ObservableObject {
         }
         showAllShortcut = defaults.dictionary(forKey: Key.showAllShortcut).flatMap(Shortcut.init(plist:))
         hoverReveal = defaults.bool(forKey: Key.hoverReveal)
+        newAppSection = defaults.string(forKey: Key.newAppSection).flatMap(MenuSection.init(rawValue:))
         sectionOverrides = (defaults.dictionary(forKey: Key.sectionOverrides) as? [String: String]) ?? [:]
         lastPhysicalSections = (defaults.dictionary(forKey: Key.lastPhysicalSections) as? [String: String]) ?? [:]
     }

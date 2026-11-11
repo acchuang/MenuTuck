@@ -394,6 +394,11 @@ private struct GeneralTab: View {
             Section("Sections & Dividers") {
                 Toggle("Show dividers (|› and ‖) when expanded", isOn: $prefs.showDividers)
                 Toggle("Use an “Always Hidden” section (‖)", isOn: $prefs.alwaysHiddenEnabled)
+                Picker("New apps go to", selection: $prefs.newAppSection) {
+                    Text("Where their icon lands").tag(MenuSection?.none)
+                    Text("Visible").tag(MenuSection?.some(.visible))
+                    Text("Hidden").tag(MenuSection?.some(.hidden))
+                }
             }
 
             Section("Shortcuts & Startup") {

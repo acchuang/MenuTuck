@@ -63,16 +63,10 @@ final class ItemsModel: ObservableObject {
         for scanned in found where scanned.frame.isOnMenuBar {
             let key = scanned.storageKey
             let detected = Self.sectionFromFrame(scanned.frame, layout: layout, alwaysHiddenEnabled: ahEnabled)
-            let prevPhysical = prefs.lastPhysicalSection(for: key)
-            prefs.setLastPhysicalSection(detected, for: key)
-
-            let movedPhysically = (prevPhysical == nil && detected != .visible)
-                || (prevPhysical != nil && prevPhysical != detected)
-            if movedPhysically || prefs.sectionOverride(for: key) == nil {
-                prefs.setSectionOverride(detected, for: key)
+            if let section = reassign(key, detected: detected) {
                 for idx in items.indices where items[idx].storageKey == key {
-                    items[idx].section = detected
-                    cachedByID[items[idx].id]?.section = detected
+                    items[idx].section = section
+                    cachedByID[items[idx].id]?.section = section
                 }
             }
         }
@@ -107,27 +101,15 @@ final class ItemsModel: ObservableObject {
 
                     if hasLiveFrame, let layout, layout.toggle.width > 0 {
                         let detected = Self.sectionFromFrame(item.frame, layout: layout, alwaysHiddenEnabled: ahEnabled)
-                        let prevPhysical = self.prefs.lastPhysicalSection(for: key)
-                        self.prefs.setLastPhysicalSection(detected, for: key)
-
-                        // Update override when an item physically crossed a divider, on first non-visible detection,
-                        // or when the user explicitly requests a full divider sync.
-                        let movedPhysically = (prevPhysical == nil && detected != .visible)
-                            || (prevPhysical != nil && prevPhysical != detected)
-                        if movedPhysically
-                            || syncFromDividers
-                            || self.prefs.sectionOverride(for: key) == nil {
-                            item.section = detected
-                            self.prefs.setSectionOverride(detected, for: key)
-                        } else if let saved = self.prefs.sectionOverride(for: key) {
-                            item.section = saved
-                        } else {
-                            item.section = detected
-                        }
+                        item.section = self.reassign(key, detected: detected, force: syncFromDividers)
+                            ?? self.prefs.sectionOverride(for: key) ?? detected
                     } else if let saved = self.prefs.sectionOverride(for: key) {
                         item.section = saved
                     } else {
-                        item.section = .visible
+                        // No frame to classify (no Accessibility access, or off the bar). Saved, so that
+                        // changing "New apps go to" later only affects apps that show up after the change.
+                        item.section = self.prefs.newAppSection ?? .visible
+                        self.prefs.setSectionOverride(item.section, for: key)
                     }
                     return item
                 }
@@ -144,6 +126,36 @@ final class ItemsModel: ObservableObject {
                 self.controller?.apply()
             }
         }
+    }
+
+    /// Records where an item physically sits and saves a new assignment if it needs one.
+    /// Returns nil when the saved assignment stands.
+    private func reassign(_ key: String, detected: MenuSection, force: Bool = false) -> MenuSection? {
+        let section = Self.newAssignment(
+            detected: detected,
+            saved: prefs.sectionOverride(for: key),
+            lastPhysical: prefs.lastPhysicalSection(for: key),
+            newAppSection: prefs.newAppSection,
+            force: force
+        )
+        prefs.setLastPhysicalSection(detected, for: key)
+        if let section { prefs.setSectionOverride(section, for: key) }
+        return section
+    }
+
+    /// An item is reassigned when the user asks for a full divider sync, when it is new, or when it
+    /// physically crossed a divider (which includes a first sighting outside Visible).
+    static func newAssignment(
+        detected: MenuSection,
+        saved: MenuSection?,
+        lastPhysical: MenuSection?,
+        newAppSection: MenuSection?,
+        force: Bool
+    ) -> MenuSection? {
+        if force { return detected }
+        if saved == nil, lastPhysical == nil, let newAppSection { return newAppSection }
+        let moved = lastPhysical == nil ? detected != .visible : lastPhysical != detected
+        return moved || saved == nil ? detected : nil
     }
 
     private static func sectionFromFrame(
