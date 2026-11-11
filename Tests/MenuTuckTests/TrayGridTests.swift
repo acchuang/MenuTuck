@@ -19,6 +19,15 @@ final class TrayGridTests: XCTestCase {
         XCTAssertEqual(TrayGrid.tiles(from: items, query: "b"), TrayGrid.tiles(from: items, query: "battery"), "visible items never show")
     }
 
+    func testUnderNotchFindsOnlyVisibleItemsInTheGap() {
+        func at(_ name: String, _ x: CGFloat, _ section: MenuSection = .visible) -> MenuBarItem {
+            MenuBarItem(id: name, pid: 1, childIndex: 0, appName: name, bundleID: nil, detail: "",
+                        frame: CGRect(x: x, y: 0, width: 20, height: 24), isFromAX: true, section: section)
+        }
+        let items = [at("Left", 600), at("Covered", 760), at("TuckedCovered", 780, .hidden), at("Right", 900)]
+        XCTAssertEqual(ItemsModel.underNotch(items, notch: 700...850).map(\.appName), ["Covered"])
+    }
+
     func testArrowsMoveInTheGridAndStopAtEdges() {
         XCTAssertEqual(TrayGrid.move(0, keyCode: 124, count: 7), 1)
         XCTAssertEqual(TrayGrid.move(0, keyCode: 123, count: 7), 0)

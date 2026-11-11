@@ -47,6 +47,18 @@ final class ItemsModel: ObservableObject {
         return items + offline
     }
 
+    /// Visible items macOS draws nowhere because the notch covers them.
+    var underNotch: [MenuBarItem] {
+        // ponytail: checks the first notched screen only; per-screen check if multi-notch setups show up.
+        guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }),
+              let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea else { return [] }
+        return Self.underNotch(items, notch: left.maxX...right.minX)
+    }
+
+    static func underNotch(_ items: [MenuBarItem], notch: ClosedRange<CGFloat>) -> [MenuBarItem] {
+        items.filter { $0.section == .visible && $0.isFromAX && $0.frame.width > 0 && notch.contains($0.frame.midX) }
+    }
+
     // MARK: - Permission
 
     func checkTrust() {

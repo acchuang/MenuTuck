@@ -9,7 +9,7 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            ItemsTab(prefs: prefs, sections: sections, model: model)
+            ItemsTab(prefs: prefs, model: model)
                 .tabItem { Label("Menu Bar Items", systemImage: "menubar.rectangle") }
             GeneralTab(prefs: prefs, sections: sections)
                 .tabItem { Label("General", systemImage: "gearshape") }
@@ -23,35 +23,16 @@ struct SettingsView: View {
 
 private struct ItemsTab: View {
     @ObservedObject var prefs: Preferences
-    @ObservedObject var sections: SectionController
     @ObservedObject var model: ItemsModel
     private let trustTimer = Timer.publish(every: 1.5, on: .main, in: .common).autoconnect()
 
-    private var activeSections: [MenuSection] {
-        prefs.alwaysHiddenEnabled ? MenuSection.allCases : [.visible, .hidden]
-    }
-
-    private var availableStates: [BarState] {
-        prefs.alwaysHiddenEnabled ? BarState.allCases : [.collapsed, .expanded]
-    }
-
-    private var totalMatchingItems: Int {
-        activeSections.reduce(0) { $0 + model.items(in: $1).count }
+    /// Left to right, the way they sit in the menu bar.
+    private var columns: [MenuSection] {
+        prefs.alwaysHiddenEnabled ? [.alwaysHidden, .hidden, .visible] : [.hidden, .visible]
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            MenuBarPostureBar(
-                state: sections.state,
-                availableStates: availableStates,
-                alwaysHiddenEnabled: prefs.alwaysHiddenEnabled,
-                onSelectState: { newState in
-                    DispatchQueue.main.async {
-                        sections.set(newState)
-                    }
-                }
-            )
-
             if model.isTrusted {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
@@ -75,59 +56,12 @@ private struct ItemsTab: View {
                 .padding(.vertical, 6)
                 .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
 
-                if !model.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                   totalMatchingItems == 0 {
-                    VStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
-                        Text("No menu bar items matching “\(model.searchQuery)”")
-                            .font(.headline)
-                        Button("Clear Filter") {
-                            model.searchQuery = ""
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                NotchBanner(model: model)
+
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(columns) { section in
+                        ArrangeColumn(model: model, section: section, targets: columns)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(.quaternary.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
-                } else {
-                    List {
-                        ForEach(activeSections) { section in
-                            Section {
-                                let sectionItems = model.items(in: section)
-                                if sectionItems.isEmpty {
-                                    Text(emptySectionMessage(for: section))
-                                        .foregroundStyle(.tertiary)
-                                }
-                                ForEach(sectionItems) { item in
-                                    ItemRow(
-                                        item: item,
-                                        sections: activeSections,
-                                        disabled: model.isBusy,
-                                        onTrigger: { model.trigger(item) },
-                                        onMove: { target in model.move(item, to: target) }
-                                    )
-                                }
-                            } header: {
-                                HStack(spacing: 6) {
-                                    Label(section.title, systemImage: section.symbol)
-                                        .fontWeight(.semibold)
-                                    Text(section.spatialHint)
-                                        .font(.caption2.monospaced())
-                                        .foregroundStyle(.secondary)
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 1)
-                                        .background(.quaternary.opacity(0.6), in: Capsule())
-                                    Spacer()
-                                    Text("\(model.items(in: section).count)")
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
-                    .listStyle(.inset(alternatesRowBackgrounds: true))
                 }
             } else {
                 OnboardingPermissionView(
@@ -158,7 +92,7 @@ private struct ItemsTab: View {
             }
 
             HStack(spacing: 8) {
-                Text("Hold ⌘ and drag icons across |› or ‖ in the menu bar, or assign a section above.")
+                Text("Drag icons between columns or right-click one. ⌘-dragging in the menu bar works too.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -181,169 +115,136 @@ private struct ItemsTab: View {
             if model.isTrusted { model.refresh(syncFromDividers: true) }
         }
     }
+}
 
-    private func emptySectionMessage(for section: MenuSection) -> String {
-        switch section {
-        case .visible:
-            return "No visible icons — assign an item to Visible or ⌘-drag it right of |›"
-        case .hidden:
-            return "No hidden icons — choose Hidden on an item or ⌘-drag it left of |›"
-        case .alwaysHidden:
-            return "No always-hidden icons — choose Always Hidden on an item or ⌘-drag it left of ‖"
+/// Visible icons the notch covers: macOS draws them nowhere, so offer to tuck them into the Tray.
+private struct NotchBanner: View {
+    @ObservedObject var model: ItemsModel
+
+    var body: some View {
+        let covered = model.underNotch
+        if !covered.isEmpty {
+            HStack(spacing: 8) {
+                Label(
+                    "\(covered.count == 1 ? "1 icon is" : "\(covered.count) icons are") under the notch: \(covered.map(\.appName).joined(separator: ", "))",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.callout)
+                .foregroundStyle(.orange)
+                .lineLimit(2)
+                Spacer()
+                Button("Move to Hidden") {
+                    for item in covered { model.move(item, to: .hidden) }
+                }
+                .help("Hidden icons open from the Tray, which the notch never covers")
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
         }
     }
 }
 
-/// Top bar showing the physical left-to-right menu bar layout (`[Always Hidden] ‖ [Hidden] |› [Visible]`)
-/// alongside the global menu bar state switcher (`Collapsed`, `Expanded`, `Show All`).
-private struct MenuBarPostureBar: View {
-    let state: BarState
-    let availableStates: [BarState]
-    let alwaysHiddenEnabled: Bool
-    let onSelectState: (BarState) -> Void
-
-    private var toggleGlyph: String {
-        state == .collapsed ? "|‹" : "|›"
-    }
+private struct ArrangeColumn: View {
+    @ObservedObject var model: ItemsModel
+    let section: MenuSection
+    let targets: [MenuSection]
+    @State private var isTargeted = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Menu Bar Layout (left → right)")
-                    .font(.caption2)
+        let items = model.items(in: section)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Label(section.title, systemImage: section.symbol)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text("\(items.count)")
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
-                HStack(spacing: 5) {
-                    if alwaysHiddenEnabled {
-                        sectionPill("Always Hidden", isShownOnBar: state == .showAll)
-                        dividerBadge("‖", isShownOnBar: state != .collapsed)
-                    }
-                    sectionPill("Hidden", isShownOnBar: state != .collapsed)
-                    dividerBadge(toggleGlyph, isShownOnBar: true)
-                    sectionPill("Visible", isShownOnBar: true)
-                }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(
-                alwaysHiddenEnabled
-                    ? "Menu bar layout from left to right: Always Hidden, double bar divider, Hidden, toggle divider, Visible"
-                    : "Menu bar layout from left to right: Hidden, toggle divider, Visible"
-            )
 
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 3) {
-                Text("Menu Bar State")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Picker(
-                    "Menu Bar State",
-                    selection: Binding(get: { state }, set: onSelectState)
-                ) {
-                    ForEach(availableStates) { itemState in
-                        Text(itemState.label).tag(itemState)
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    if items.isEmpty {
+                        Text(model.searchQuery.isEmpty ? "Drag icons here" : "No matches")
+                            .font(.callout)
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, minHeight: 60)
+                    }
+                    ForEach(items) { item in
+                        ArrangeTile(item: item, targets: targets.filter { $0 != section }, model: model)
                     }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-                .help("Switch the live menu bar between Collapsed, Expanded, and Show All")
-                .accessibilityLabel("Menu Bar State")
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    private func sectionPill(_ title: String, isShownOnBar: Bool) -> some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(isShownOnBar ? Color.accentColor : Color.secondary.opacity(0.35))
-                .frame(width: 5, height: 5)
-            Text(title)
-                .font(.caption2.weight(isShownOnBar ? .medium : .regular))
-                .foregroundStyle(isShownOnBar ? .primary : .secondary)
-        }
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
+        .padding(8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(
-            isShownOnBar ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.08),
-            in: RoundedRectangle(cornerRadius: 5)
+            isTargeted ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08),
+            in: RoundedRectangle(cornerRadius: 10)
         )
-    }
-
-    private func dividerBadge(_ glyph: String, isShownOnBar: Bool) -> some View {
-        Text(glyph)
-            .font(.caption2.monospaced().weight(.semibold))
-            .foregroundStyle(isShownOnBar ? .primary : .tertiary)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
+        .dropDestination(for: String.self) { keys, _ in
+            let dropped = model.items.filter { keys.contains($0.storageKey) }
+            for item in dropped { model.move(item, to: section) }
+            return !dropped.isEmpty
+        } isTargeted: { isTargeted = $0 }
     }
 }
 
-private struct ItemRow: View {
+private struct ArrangeTile: View {
     let item: MenuBarItem
-    let sections: [MenuSection]
-    let disabled: Bool
-    let onTrigger: () -> Void
-    let onMove: (MenuSection) -> Void
+    let targets: [MenuSection]
+    let model: ItemsModel
 
-    private var subtitleText: String? {
+    private var subtitle: String? {
         let trimmed = item.detail.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty, trimmed != "MenuBarExtra", trimmed != item.appName {
-            return trimmed
-        }
-        if let bid = item.bundleID, bid != item.appName {
-            return bid
-        }
-        return nil
+        return trimmed.isEmpty || trimmed == "MenuBarExtra" || trimmed == item.appName ? nil : trimmed
     }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(nsImage: item.appIcon)
                 .resizable()
                 .frame(width: 20, height: 20)
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.appName)
-                    .fontWeight(.medium)
                     .lineLimit(1)
-                if let subtitleText {
-                    Text(subtitleText)
+                if let subtitle {
+                    Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
-            Spacer()
-            Button("Open Menu", action: onTrigger)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help("Expand the menu bar if needed and click \(item.appName)’s status item")
-                .accessibilityLabel("Open \(item.appName) menu bar item")
-                .disabled(disabled)
-            Picker(
-                "Section for \(item.appName)",
-                selection: Binding(
-                    get: { item.section },
-                    set: { target in
-                        DispatchQueue.main.async {
-                            onMove(target)
-                        }
-                    }
-                )
-            ) {
-                ForEach(sections) { Text($0.title).tag($0) }
-            }
-            .labelsHidden()
-            .frame(minWidth: 135)
-            .fixedSize()
-            .accessibilityLabel("Section for \(item.appName)")
-            .disabled(disabled)
+            Spacer(minLength: 0)
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(.background.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+        .contentShape(Rectangle())
+        .draggable(item.storageKey) {
+            Image(nsImage: item.appIcon).resizable().frame(width: 24, height: 24)
+        }
+        .onTapGesture(count: 2) { model.trigger(item) }
+        .help("Double-click to open \(item.appName)’s menu. Drag to another column to move it.")
+        .contextMenu {
+            Button("Open Menu") { model.trigger(item) }
+            Divider()
+            ForEach(targets) { target in
+                Button("Move to \(target.title)") { model.move(item, to: target) }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAction(named: "Open Menu") { model.trigger(item) }
+        .accessibilityActions {
+            ForEach(targets) { target in
+                Button("Move to \(target.title)") { model.move(item, to: target) }
+            }
+        }
     }
 }
+
 
 // MARK: - General
 
