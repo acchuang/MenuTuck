@@ -31,9 +31,19 @@ private struct ItemsTab: View {
         prefs.alwaysHiddenEnabled ? [.alwaysHidden, .hidden, .visible] : [.hidden, .visible]
     }
 
+    @State private var onboardingDone = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if model.isTrusted {
+            if !model.isTrusted {
+                OnboardingPermissionView(onRequestTrust: { model.requestTrust() })
+            } else if !prefs.didOnboard {
+                if onboardingDone {
+                    OnboardingDoneView(model: model) { prefs.didOnboard = true }
+                } else {
+                    OnboardingPickView(model: model) { onboardingDone = true }
+                }
+            } else {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
@@ -63,11 +73,6 @@ private struct ItemsTab: View {
                         ArrangeColumn(model: model, section: section, targets: columns)
                     }
                 }
-            } else {
-                OnboardingPermissionView(
-                    alwaysHiddenEnabled: prefs.alwaysHiddenEnabled,
-                    onRequestTrust: { model.requestTrust() }
-                )
             }
 
             if let error = model.lastError {

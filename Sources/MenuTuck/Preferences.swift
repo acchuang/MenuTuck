@@ -18,6 +18,7 @@ final class Preferences: ObservableObject {
         static let sectionOverrides = "sectionOverrides"
         static let lastPhysicalSections = "lastPhysicalSections"
         static let revealStyle = "revealStyle"
+        static let didOnboard = "didOnboard"
     }
 
     enum RevealStyle: String {
@@ -61,6 +62,8 @@ final class Preferences: ObservableObject {
     /// How a click on the toggle reveals hidden icons. Defaults to the Tray on a notched screen,
     /// where revealed icons would land behind the notch.
     @Published var revealStyle: RevealStyle { didSet { defaults.set(revealStyle.rawValue, forKey: Key.revealStyle) } }
+    /// Finished the pick-icons onboarding. Anyone who already arranged icons counts as done.
+    @Published var didOnboard: Bool { didSet { defaults.set(didOnboard, forKey: Key.didOnboard) } }
     /// Saved per-bundleID section assignments (`bundleID -> MenuSection.rawValue`).
     @Published var sectionOverrides: [String: String] {
         didSet { defaults.set(sectionOverrides, forKey: Key.sectionOverrides) }
@@ -90,8 +93,10 @@ final class Preferences: ObservableObject {
         let hasNotch = NSScreen.screens.contains { $0.safeAreaInsets.top > 0 }
         revealStyle = defaults.string(forKey: Key.revealStyle).flatMap(RevealStyle.init(rawValue:))
             ?? (hasNotch ? .tray : .menuBar)
-        sectionOverrides = (defaults.dictionary(forKey: Key.sectionOverrides) as? [String: String]) ?? [:]
+        let overrides = (defaults.dictionary(forKey: Key.sectionOverrides) as? [String: String]) ?? [:]
+        sectionOverrides = overrides
         lastPhysicalSections = (defaults.dictionary(forKey: Key.lastPhysicalSections) as? [String: String]) ?? [:]
+        didOnboard = defaults.object(forKey: Key.didOnboard) as? Bool ?? !overrides.isEmpty
     }
 
     func sectionOverride(for key: String) -> MenuSection? {
