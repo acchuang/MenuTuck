@@ -8,7 +8,6 @@ final class Preferences: ObservableObject {
     private enum Key {
         static let autoHide = "autoHide"
         static let autoHideDelay = "autoHideDelay"
-        static let rehideOnOutsideClick = "rehideOnOutsideClick"
         static let alwaysHiddenEnabled = "alwaysHiddenEnabled"
         static let showDividers = "showDividers"
         static let enableGlobalHotkey = "enableGlobalHotkey"
@@ -31,14 +30,12 @@ final class Preferences: ObservableObject {
     private let defaults = UserDefaults.standard
     private var lastPhysicalSections: [String: String]
 
-    /// Collapse the hidden section again after a delay.
+    static let autoHideDelays: [Double] = [5, 15, 30]
+
+    /// Collapse the hidden section after a delay, or on a click below the menu bar.
     @Published var autoHide: Bool { didSet { defaults.set(autoHide, forKey: Key.autoHide) } }
-    /// Seconds before the hidden section collapses again.
+    /// Seconds before the hidden section collapses again; one of `autoHideDelays`.
     @Published var autoHideDelay: Double { didSet { defaults.set(autoHideDelay, forKey: Key.autoHideDelay) } }
-    /// Collapse the hidden section when the user clicks below the menu bar.
-    @Published var rehideOnOutsideClick: Bool {
-        didSet { defaults.set(rehideOnOutsideClick, forKey: Key.rehideOnOutsideClick) }
-    }
     /// Use a third "always hidden" section (shown only with ⌥-click).
     @Published var alwaysHiddenEnabled: Bool { didSet { defaults.set(alwaysHiddenEnabled, forKey: Key.alwaysHiddenEnabled) } }
     /// Draw a thin divider between sections when they are expanded.
@@ -72,15 +69,14 @@ final class Preferences: ObservableObject {
     private init() {
         defaults.register(defaults: [
             Key.autoHide: true,
-            Key.autoHideDelay: 10.0,
-            Key.rehideOnOutsideClick: false,
+            Key.autoHideDelay: 15.0,
             Key.alwaysHiddenEnabled: true,
             Key.showDividers: true,
             Key.enableGlobalHotkey: true,
         ])
         autoHide = defaults.bool(forKey: Key.autoHide)
-        autoHideDelay = defaults.double(forKey: Key.autoHideDelay)
-        rehideOnOutsideClick = defaults.bool(forKey: Key.rehideOnOutsideClick)
+        let savedDelay = defaults.double(forKey: Key.autoHideDelay)
+        autoHideDelay = Self.autoHideDelays.min { abs($0 - savedDelay) < abs($1 - savedDelay) } ?? 15
         alwaysHiddenEnabled = defaults.bool(forKey: Key.alwaysHiddenEnabled)
         showDividers = defaults.bool(forKey: Key.showDividers)
         if !defaults.bool(forKey: Key.enableGlobalHotkey) {

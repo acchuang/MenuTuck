@@ -273,33 +273,30 @@ private struct GeneralTab: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Auto-Hide") {
-                Toggle("Hide icons again automatically", isOn: $prefs.autoHide)
-                LabeledContent("Hide after") {
-                    HStack {
-                        Slider(value: $prefs.autoHideDelay, in: 3...60, step: 1)
-                            .frame(width: 180)
-                        Text("\(Int(prefs.autoHideDelay)) s")
-                            .monospacedDigit()
-                            .frame(width: 36, alignment: .trailing)
-                    }
+            Section {
+                Picker("Hide again", selection: autoHideChoice) {
+                    Text("Never").tag(0.0)
+                    ForEach(Preferences.autoHideDelays, id: \.self) { Text("After \(Int($0)) s").tag($0) }
                 }
-                .disabled(!prefs.autoHide)
-                Toggle("Hide when clicking outside the menu bar", isOn: $prefs.rehideOnOutsideClick)
-                Toggle("Reveal hidden icons while hovering over |›, until the pointer leaves the menu bar", isOn: $prefs.hoverReveal)
-            }
-
-            Section("Sections & Dividers") {
-                Toggle("Show dividers (|› and ‖) when expanded", isOn: $prefs.showDividers)
-                Toggle("Use an “Always Hidden” section (‖)", isOn: $prefs.alwaysHiddenEnabled)
+                Text("Also hides when you click outside the menu bar.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Picker("New apps go to", selection: $prefs.newAppSection) {
                     Text("Where their icon lands").tag(MenuSection?.none)
                     Text("Visible").tag(MenuSection?.some(.visible))
                     Text("Hidden").tag(MenuSection?.some(.hidden))
                 }
+                Toggle("Use an Always Hidden section", isOn: $prefs.alwaysHiddenEnabled)
             }
 
-            Section("Shortcuts & Startup") {
+            if prefs.revealStyle == .menuBar {
+                Section("In the Menu Bar") {
+                    Toggle("Show dividers (|› and ‖) when expanded", isOn: $prefs.showDividers)
+                    Toggle("Reveal while hovering over |›", isOn: $prefs.hoverReveal)
+                }
+            }
+
+            Section {
                 ShortcutRecorder(
                     title: "Toggle hidden icons", shortcut: $prefs.toggleShortcut, taken: prefs.showAllShortcut,
                     refused: sections.refusedHotkeys.contains(SectionController.toggleHotkeyID)
@@ -314,23 +311,28 @@ private struct GeneralTab: View {
                 }
             }
 
-            Section("About") {
+            Section {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev build")
                 Button("Check for Updates…") { UpdateChecker.run() }
-            }
-
-            Section("Quick Reference") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("• Click |‹ in the menu bar to expand and show Hidden icons.")
-                    Text("• Option-click (⌥-click) |‹ or click ‖ to Show All icons (including Always Hidden).")
-                    Text("• Hold ⌘ and drag any menu bar icon left of |› (Hidden) or left of ‖ (Always Hidden).")
-                    Text("• Right-click |‹ or ‖ in the menu bar to open the quick menu.")
+                DisclosureGroup("macOS 27 notes") {
+                    Text("Control Center items (Wi-Fi, Battery, Clock) can't be hidden. Apps with several menu bar icons hide all of them together.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .font(.callout)
-                .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// 0 means auto-hide is off; any other value is the delay.
+    private var autoHideChoice: Binding<Double> {
+        Binding(
+            get: { prefs.autoHide ? prefs.autoHideDelay : 0 },
+            set: { value in
+                prefs.autoHide = value > 0
+                if value > 0 { prefs.autoHideDelay = value }
+            }
+        )
     }
 
     private func setLaunchAtLogin(_ enabled: Bool) {

@@ -304,7 +304,7 @@ final class SectionController: NSObject, ObservableObject {
             guard let self else { return }
             // A click may have opened a hidden icon's menu; collapsing on pointer exit would close it.
             self.revealedByHover = false
-            guard self.prefs.rehideOnOutsideClick, self.state != .collapsed else { return }
+            guard self.prefs.autoHide, self.state != .collapsed else { return }
             if !Self.pointerIsInMenuBar() {
                 DispatchQueue.main.async { self.set(.collapsed) }
             }
