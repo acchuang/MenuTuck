@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Native macOS Menu Bar Icon Manager</strong><br/>
-  Hide, reveal, and organize menu bar icons into <em>Visible</em>, <em>Hidden</em>, and <em>Always Hidden</em> sections. A small Swift app for macOS 27+, MIT-licensed, no Screen Recording permission.
+  Tuck menu bar icons into <em>Hidden</em> and <em>Always Hidden</em> sections and reach them from a keyboard-first Tray, so nothing gets lost behind the notch. A small Swift app for macOS 27+, MIT-licensed, no Screen Recording permission.
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
    xattr -cr /Applications/MenuTuck.app
    open /Applications/MenuTuck.app
    ```
-4. Grant **Accessibility** access when prompted (**System Settings → Privacy & Security → Accessibility**) so MenuTuck can detect live `⌘`-drags across dividers and trigger menu bar items.
+4. Grant **Accessibility** access when prompted (**System Settings → Privacy & Security → Accessibility**) so MenuTuck can detect live `⌘`-drags across dividers, list items in the Tray, and open their menus. The first-run guide walks you through it.
 
 **Updating from v0.1.5 or earlier:** those builds were ad-hoc signed, so macOS sees v0.1.6 as a different app and the Accessibility grant silently stops working. One last time, remove **MenuTuck** from **System Settings → Privacy & Security → Accessibility** with **–**, then add it again (or run `tccutil reset Accessibility com.acchuang.MenuTuck` and relaunch). From v0.1.6 on, releases share one signing certificate and the grant survives updates. Right-click `|‹` / `|›` → **Check for Updates…** tells you when a newer release exists.
 
@@ -44,14 +44,18 @@
 - **Two Ways to Organize Icons**:
   - **In the Menu Bar**: Hold `⌘` and drag any icon to the left of `|‹` / `|›` to hide it, or to the left of `‖` to always hide it.
   - **In Settings (`Menu Bar Items` tab)**: An Arrange board with three columns (**Always Hidden**, **Hidden**, **Visible**) in menu bar order. Drag a tile between columns or right-click it to move; double-click opens its menu. A banner offers to move icons the notch covers into Hidden.
+- **Tray (default on notched Macs)**: Hidden and Always Hidden icons appear as tiles in a panel below the menu bar, so nothing lands behind the notch. No Screen Recording permission.
+  - Each tile shows the app icon, the item's own text (title, description or tooltip), and the app's Dock badge count.
+  - Most-opened items come first. Tucked apps that aren't running show as grey tiles; clicking one launches the app.
+  - Type to filter, arrows + Return or `1`–`9` to open, `Esc` to close.
+  - Right-click a tile to move it to another section, quit the app, or show it in Finder.
 - **Quick Controls**:
   - **Left-click `|‹` / `|›`**: Open the Tray, or toggle Hidden icons in the menu bar (*General → Reveal*).
   - **Option-click (`⌥`-click) `|‹` / `|›` or click `‖`**: Show All icons in the menu bar (including Always Hidden).
   - **Right-click `|‹` / `|›`**: Open the quick menu (*Show/Hide Icons*, *Show All Icons*, a *Hidden Icons* list in menu-bar mode, *Settings…*, *Check for Updates…*, *Quit*).
-- **Tray (default on notched Macs)**: Hidden and Always Hidden icons appear as tiles in a panel below the menu bar, so nothing lands behind the notch. Each tile shows the app icon plus the item's own text (title, description or tooltip). Type to filter, arrows + Return or `1`–`9` to open, `Esc` to close. Right-click a tile to move it to another section, quit the app, or show it in Finder. No Screen Recording permission.
-  - **Global Shortcuts**: Toggle Hidden icons from anywhere (`⌃⌥M` by default), plus an optional Show All shortcut. Both are recordable in Settings.
+  - **Global Shortcuts**: Toggle from anywhere (`⌃⌥M` by default); hold it to peek and release to hide again. An optional Show All shortcut too. Both are recordable in Settings.
 - **Auto-Rehide & Launch at Login**:
-  - Automatically collapses hidden icons after `5`, `15` or `30 s`, or when clicking outside the menu bar.
+  - Collapses hidden icons after `5`, `15` or `30 s` (or never), and when clicking outside the menu bar.
   - Native `SMAppService` Launch at Login support.
 
 ---
@@ -125,12 +129,12 @@
 
 ## MenuTuck at a glance
 
-Measured on macOS 27.2 (release build from before v0.1.6, fresh launch, idle, 60 s sample; v0.1.6 not re-measured):
+Measured on macOS 27.2. Size and memory are from v0.2.0; idle CPU is from a build before v0.1.6 and hasn't been re-measured.
 
 | Metric | MenuTuck |
 | --- | --- |
-| App bundle / binary size | `~910 KB` / `630 KB` (not re-measured) |
-| Memory (`phys_footprint`) | `~15 MB` fresh; the v0.1.4 build grew to `~84 MB` over ~5 days of uptime (growth not re-checked on this build) |
+| App bundle / binary size | `1.4 MB` / `1.1 MB` |
+| Memory (`footprint`) | `~55 MB`, one reading shortly after launch; long-uptime growth not re-checked (v0.1.4 reached `~84 MB` over ~5 days) |
 | Idle CPU (`top`) | `~0.05%` (v0.1.4 measured `~1.3%`) |
 | Third-party dependencies | None (Apple frameworks only) |
 | Screen Recording permission | Not requested |
@@ -153,6 +157,8 @@ Other menu bar managers worth a look. Licenses as listed by each project; compar
 - **macOS 27 only.** Only macOS 27.0.1 and 27.2 have been tried, and older versions won't launch the app. There is no fallback: a spacer-based one hid nothing on 27.2, so it was removed.
 - **Hardcoded system items.** The hide list allows system menu bar items `0...15` and assumes `4` is the keyboard item. If a future macOS adds an item with a higher ID, MenuTuck may hide it.
 - **Multiple displays.** "Re-hide on outside click" measures the menu bar against the screen you clicked on. The bar height comes from the screen itself (30 pt external, 38 pt notched), with a 36 pt floor for auto-hide. Items on a display left of the primary (negative x) are accepted by the scanner, but I haven't run that layout either. Verified on a 30 pt external plus a 38 pt notched display with aligned top edges; staggered arrangements are untested.
+- **Tray scans on open.** Each time the Tray opens, MenuTuck rescans menu bar items over Accessibility. Not measured with many apps running.
+- **Dock badges** come from the Dock's accessibility tree, so apps that hide their Dock icon show no badge.
 - **Crash loop.** If MenuTuck crashes at login after a macOS update, remove it from **System Settings → General → Login Items** and open an issue.
 - **Not notarized.** Signed with a self-signed certificate (no paid Apple Developer ID), hence the `xattr -cr` step. Updates keep your Accessibility grant only while releases are signed with that same certificate; if its key is ever lost, everyone re-grants once.
 
@@ -168,15 +174,19 @@ Open an issue: [github.com/acchuang/MenuTuck/issues](https://github.com/acchuang
 | --- | --- |
 | [`Sources/MenuTuck/main.swift`](Sources/MenuTuck/main.swift) | App entry point (`NSApplication.ActivationPolicy.accessory`). |
 | [`Sources/MenuTuck/AppDelegate.swift`](Sources/MenuTuck/AppDelegate.swift) | App lifecycle, startup scan, and Settings window routing. |
-| [`Sources/MenuTuck/SectionController.swift`](Sources/MenuTuck/SectionController.swift) | Manages the `|‹`/`|›` and `‖` status items, self-targeted `AXUIElement` frame tracking, hotkeys, and auto-rehide timers. |
+| [`Sources/MenuTuck/SectionController.swift`](Sources/MenuTuck/SectionController.swift) | Manages the `|‹`/`|›` and `‖` status items, self-targeted `AXUIElement` frame tracking, Tray vs. in-menu-bar reveal, and auto-rehide timers. |
+| [`Sources/MenuTuck/TrayPanel.swift`](Sources/MenuTuck/TrayPanel.swift) | The Tray: non-activating panel, SwiftUI tile grid, filter and keyboard navigation, tile menu, Dock badges. |
+| [`Sources/MenuTuck/Hotkeys.swift`](Sources/MenuTuck/Hotkeys.swift) | Carbon global hot keys, including hold-to-peek release detection. |
+| [`Sources/MenuTuck/MenuSection.swift`](Sources/MenuTuck/MenuSection.swift) & [`Sources/MenuTuck/StatusImages.swift`](Sources/MenuTuck/StatusImages.swift) | Section and bar-state types; fixed-width status item images. |
 | [`Sources/MenuTuck/MenuBarHider.swift`](Sources/MenuTuck/MenuBarHider.swift) | Bridges `MenuBarClientCore` (`MBAssessmentModeAssertion` & `MBAssessmentModeConfiguration`) for native in-place icon hiding. |
 | [`Sources/MenuTuck/MenuBarScanner.swift`](Sources/MenuTuck/MenuBarScanner.swift) | Parallel `AXUIElement` (`kAXExtrasMenuBarAttribute`) scanner and action dispatcher. |
 | [`Sources/MenuTuck/UpdateChecker.swift`](Sources/MenuTuck/UpdateChecker.swift) | Manual *Check for Updates…*: one GitHub `releases/latest` request, numeric tag compare. |
 | [`Sources/MenuTuck/ItemsModel.swift`](Sources/MenuTuck/ItemsModel.swift) | Classifies items relative to `|›` and `‖` and reconciles live `⌘`-drags with Settings overrides. |
 | [`Sources/MenuTuck/Preferences.swift`](Sources/MenuTuck/Preferences.swift) | `UserDefaults`-backed observable settings and per-app section overrides. |
-| [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) | Settings window and its SwiftUI interface (*Menu Bar Items* and *General* tabs). |
+| [`Sources/MenuTuck/SettingsWindowController.swift`](Sources/MenuTuck/SettingsWindowController.swift) & [`Sources/MenuTuck/SettingsView.swift`](Sources/MenuTuck/SettingsView.swift) | Settings window and its SwiftUI interface (*Menu Bar Items* Arrange board and *General* tabs). |
+| [`Sources/MenuTuck/OnboardingView.swift`](Sources/MenuTuck/OnboardingView.swift) | Three-step first-run guide (Accessibility, pick icons, Tray preview). |
 | [`scripts/generate-icon.swift`](scripts/generate-icon.swift) | CoreGraphics generator for [`Resources/AppIcon.icns`](Resources/AppIcon.icns) and [`Resources/AppIcon-1024.png`](Resources/AppIcon-1024.png) (`16×16`–`1024×1024`). |
-| [`Tests/MenuTuckTests`](Tests/MenuTuckTests) | Unit tests (on-menu-bar frame filtering, state/section label checks, update-tag compare). |
+| [`Tests/MenuTuckTests`](Tests/MenuTuckTests) | Unit tests (on-menu-bar filtering, notch detection, new-app assignment, hot key parsing, Tray grid order and navigation, update-tag compare). |
 
 ---
 
