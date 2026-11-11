@@ -48,6 +48,7 @@ final class SectionController: NSObject, ObservableObject {
     /// Items outside the Visible section, left to right, for the right-click menu.
     var tuckedItems: (() -> [MenuBarItem])?
     var onOpenItem: ((MenuBarItem) -> Void)?
+    var tray: TrayController?
 
     override init() {
         // Ensure AppKit does not restore a stale `Visible = 0` / `VisibleCC = 0` from UserDefaults.
@@ -117,6 +118,17 @@ final class SectionController: NSObject, ObservableObject {
 
     func toggle() {
         set(state == .collapsed ? .expanded : .collapsed)
+    }
+
+    private var usesTray: Bool { prefs.revealStyle == .tray && state == .collapsed && tray != nil }
+
+    /// Click, hot key and menu: the Tray when it is the reveal style, else the bar.
+    func reveal() {
+        if usesTray {
+            tray?.toggle(below: Self.ownAXFrames()[Self.toggleID])
+        } else {
+            toggle()
+        }
     }
 
     func apply() {
@@ -306,7 +318,7 @@ final class SectionController: NSObject, ObservableObject {
                 refused.insert(id)
             }
         }
-        bind(Self.toggleHotkeyID, prefs.toggleShortcut) { [weak self] in self?.toggle() }
+        bind(Self.toggleHotkeyID, prefs.toggleShortcut) { [weak self] in self?.reveal() }
         bind(Self.showAllHotkeyID, prefs.showAllShortcut) { [weak self] in self?.toggleShowAll() }
         if refused != refusedHotkeys { refusedHotkeys = refused }
     }
@@ -353,8 +365,12 @@ final class SectionController: NSObject, ObservableObject {
             guard let self else { return }
             self.hoverTimer = nil
             guard self.state == .collapsed else { return }
-            self.set(.expanded)
-            self.revealedByHover = true
+            if self.usesTray {
+                self.tray?.show(below: frame)
+            } else {
+                self.set(.expanded)
+                self.revealedByHover = true
+            }
         }
     }
 
@@ -435,20 +451,22 @@ final class SectionController: NSObject, ObservableObject {
         } else if sender === alwaysHiddenDivider.button {
             set(state == .showAll ? .expanded : .showAll)
         } else {
-            toggle()
+            reveal()
         }
     }
 
     private func showMenu() {
+        tray?.close()
         let menu = NSMenu()
-        let toggleTitle = state == .collapsed ? "Show Hidden Icons" : "Hide Icons"
+        let toggleTitle = usesTray ? "Open Tray" : state == .collapsed ? "Show Hidden Icons" : "Hide Icons"
         menu.addItem(withTitle: toggleTitle, action: #selector(menuToggle), keyEquivalent: "").target = self
         let showAll = menu.addItem(withTitle: "Show All Icons", action: #selector(menuShowAll), keyEquivalent: "")
         showAll.target = self
         showAll.isEnabled = state != .showAll
         menu.addItem(.separator())
         // Lists tucked icons by name so one stays reachable even when the notch leaves no room to show it.
-        let tucked = tuckedItems?() ?? []
+        // The Tray already lists them.
+        let tucked = usesTray ? [] : tuckedItems?() ?? []
         if !tucked.isEmpty {
             menu.addItem(.sectionHeader(title: "Hidden Icons"))
             let names = tucked.map(\.appName)
@@ -476,7 +494,7 @@ final class SectionController: NSObject, ObservableObject {
         toggleItem.menu = nil
     }
 
-    @objc private func menuToggle() { toggle() }
+    @objc private func menuToggle() { reveal() }
     @objc private func menuShowAll() { set(.showAll) }
     @objc private func menuOpenItem(_ sender: NSMenuItem) {
         if let item = sender.representedObject as? MenuBarItem { onOpenItem?(item) }

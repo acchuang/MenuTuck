@@ -24,13 +24,9 @@ final class ItemsModel: ObservableObject {
     }
 
     func items(in section: MenuSection) -> [MenuBarItem] {
-        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        return items.filter { item in
+        items.filter { item in
             let effective = (item.section == .alwaysHidden && !prefs.alwaysHiddenEnabled) ? .hidden : item.section
-            guard effective == section else { return false }
-            guard !query.isEmpty else { return true }
-            return item.appName.localizedCaseInsensitiveContains(query)
-                || item.detail.localizedCaseInsensitiveContains(query)
+            return effective == section && item.matches(searchQuery)
         }
     }
 

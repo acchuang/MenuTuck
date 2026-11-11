@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Combine
 
 /// UserDefaults-backed settings, observable from SwiftUI and AppKit.
@@ -18,6 +18,14 @@ final class Preferences: ObservableObject {
         static let newAppSection = "newAppSection"
         static let sectionOverrides = "sectionOverrides"
         static let lastPhysicalSections = "lastPhysicalSections"
+        static let revealStyle = "revealStyle"
+    }
+
+    enum RevealStyle: String {
+        /// Hidden icons open in a panel under the toggle; nothing in the bar moves.
+        case tray
+        /// Hidden icons slide back into the menu bar.
+        case menuBar
     }
 
     private let defaults = UserDefaults.standard
@@ -53,6 +61,9 @@ final class Preferences: ObservableObject {
     @Published var newAppSection: MenuSection? {
         didSet { defaults.set(newAppSection?.rawValue, forKey: Key.newAppSection) }
     }
+    /// How a click on the toggle reveals hidden icons. Defaults to the Tray on a notched screen,
+    /// where revealed icons would land behind the notch.
+    @Published var revealStyle: RevealStyle { didSet { defaults.set(revealStyle.rawValue, forKey: Key.revealStyle) } }
     /// Saved per-bundleID section assignments (`bundleID -> MenuSection.rawValue`).
     @Published var sectionOverrides: [String: String] {
         didSet { defaults.set(sectionOverrides, forKey: Key.sectionOverrides) }
@@ -80,6 +91,9 @@ final class Preferences: ObservableObject {
         showAllShortcut = defaults.dictionary(forKey: Key.showAllShortcut).flatMap(Shortcut.init(plist:))
         hoverReveal = defaults.bool(forKey: Key.hoverReveal)
         newAppSection = defaults.string(forKey: Key.newAppSection).flatMap(MenuSection.init(rawValue:))
+        let hasNotch = NSScreen.screens.contains { $0.safeAreaInsets.top > 0 }
+        revealStyle = defaults.string(forKey: Key.revealStyle).flatMap(RevealStyle.init(rawValue:))
+            ?? (hasNotch ? .tray : .menuBar)
         sectionOverrides = (defaults.dictionary(forKey: Key.sectionOverrides) as? [String: String]) ?? [:]
         lastPhysicalSections = (defaults.dictionary(forKey: Key.lastPhysicalSections) as? [String: String]) ?? [:]
     }

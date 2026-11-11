@@ -362,6 +362,16 @@ private struct GeneralTab: View {
                 }
             }
 
+            Section("Reveal") {
+                Picker("Clicking |‹ shows hidden icons", selection: $prefs.revealStyle) {
+                    Text("In a Tray below the menu bar").tag(Preferences.RevealStyle.tray)
+                    Text("In the menu bar").tag(Preferences.RevealStyle.menuBar)
+                }
+                Text("The Tray keeps icons out from behind the notch. Type to filter, 1–9 or Return to open, right-click a tile to move it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Auto-Hide") {
                 Toggle("Hide icons again automatically", isOn: $prefs.autoHide)
                 LabeledContent("Hide after") {

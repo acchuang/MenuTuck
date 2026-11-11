@@ -25,6 +25,13 @@ struct MenuBarItem: Identifiable, Hashable {
         bundleID ?? appName
     }
 
+    func matches(_ query: String) -> Bool {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return query.isEmpty
+            || appName.localizedCaseInsensitiveContains(query)
+            || detail.localizedCaseInsensitiveContains(query)
+    }
+
     /// Keyed by app, not PID: a relaunch brings a new PID but the same icon, so the number of apps bounds the cache.
     private static var iconCache: [String: NSImage] = [:]
 
