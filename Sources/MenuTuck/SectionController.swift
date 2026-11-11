@@ -276,11 +276,11 @@ final class SectionController: NSObject, ObservableObject {
             item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         toggleItem.button?.setAccessibilityIdentifier(Self.toggleID)
-        toggleItem.button?.setAccessibilityLabel(Self.toggleID)
+        toggleItem.button?.setAccessibilityLabel("MenuTuck, show or hide menu bar icons")
         toggleItem.button?.toolTip = "Click: show/hide icons · ⌥-click: show all · ⌘-drag icons left of |› to hide · Right-click: menu"
 
         alwaysHiddenDivider.button?.setAccessibilityIdentifier(Self.alwaysHiddenDividerID)
-        alwaysHiddenDivider.button?.setAccessibilityLabel(Self.alwaysHiddenDividerID)
+        alwaysHiddenDivider.button?.setAccessibilityLabel("MenuTuck, Always Hidden divider")
         alwaysHiddenDivider.button?.toolTip = "Always-Hidden section divider (‖). Click to show all · ⌘-drag icons to the left to always hide."
     }
 
