@@ -45,15 +45,24 @@
   - **In the Menu Bar**: Hold `⌘` and drag any icon to the left of `|‹` / `|›` to hide it, or to the left of `‖` to always hide it.
   - **In Settings (`Menu Bar Items` tab)**: Assign any running menu bar app to **Visible**, **Hidden**, or **Always Hidden** with the section picker (accompanied by a live `[Always Hidden] ‖ [Hidden] |› [Visible]` layout bar), or click **Open Menu** to trigger its menu bar item remotely.
 - **Quick Controls**:
-  - **Left-click `|‹` / `|›`**: Toggle Hidden icons.
-  - **Option-click (`⌥`-click) `|‹` / `|›` or click `‖`**: Show All icons (including Always Hidden).
-  - **Right-click `|‹` / `|›`**: Open the quick menu (*Show/Hide Icons*, *Show All Icons*, a *Hidden Icons* list you can click to open any hidden item, *Settings…*, *Check for Updates…*, *Quit*).
+  - **Left-click `|‹` / `|›`**: Open the Tray, or toggle Hidden icons in the menu bar (*General → Reveal*).
+  - **Option-click (`⌥`-click) `|‹` / `|›` or click `‖`**: Show All icons in the menu bar (including Always Hidden).
+  - **Right-click `|‹` / `|›`**: Open the quick menu (*Show/Hide Icons*, *Show All Icons*, a *Hidden Icons* list in menu-bar mode, *Settings…*, *Check for Updates…*, *Quit*).
+- **Tray (default on notched Macs)**: Hidden and Always Hidden icons appear as tiles in a panel below the menu bar, so nothing lands behind the notch. Each tile shows the app icon plus the item's own text (title, description or tooltip). Type to filter, arrows + Return or `1`–`9` to open, `Esc` to close. Right-click a tile to move it to another section, quit the app, or show it in Finder. No Screen Recording permission.
   - **Global Shortcuts**: Toggle Hidden icons from anywhere (`⌃⌥M` by default), plus an optional Show All shortcut. Both are recordable in Settings.
 - **Auto-Rehide & Launch at Login**:
   - Automatically collapses hidden icons after a configurable delay (`3–60 s`) or when clicking outside the menu bar.
   - Native `SMAppService` Launch at Login support.
 
 ---
+
+## Unreleased (v0.2.0)
+
+- **Tray.** Clicking `|‹` opens a panel of hidden icons below the menu bar instead of sliding them in, so nothing is pushed behind the notch. Keyboard-first: type to filter, `1`–`9` or arrows + Return to open, `Esc` to close.
+- **Live tile text.** Tiles show what the item itself reports (title, description or tooltip), falling back to the app name.
+- **Tile menu.** Right-click a tile to move it to Visible, Hidden or Always Hidden, quit the app, or show it in Finder.
+- **Reveal setting.** *General → Reveal* picks the Tray or the classic in-menu-bar reveal. Notched Macs default to the Tray.
+- **Steadier toggle.** The `|‹` icon keeps a fixed width, so flipping it never nudges its neighbours.
 
 ## What's new in v0.1.7
 
