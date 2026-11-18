@@ -46,6 +46,15 @@ final class TrayGridTests: XCTestCase {
         XCTAssertEqual([0, 1, 4, 6, 7, 12, 13, 19].map(TrayGrid.columns(for:)), [1, 1, 4, 6, 4, 6, 5, 5])
     }
 
+    func testNeighborColumnStopsAtEdgesAndFoldsAlwaysHidden() {
+        let three: [MenuSection] = [.alwaysHidden, .hidden, .visible]
+        XCTAssertEqual(ItemsModel.neighbor(of: .hidden, step: -1, in: three), .alwaysHidden)
+        XCTAssertEqual(ItemsModel.neighbor(of: .hidden, step: 1, in: three), .visible)
+        XCTAssertNil(ItemsModel.neighbor(of: .visible, step: 1, in: three))
+        XCTAssertNil(ItemsModel.neighbor(of: .alwaysHidden, step: -1, in: three))
+        XCTAssertEqual(ItemsModel.neighbor(of: .alwaysHidden, step: 1, in: [.hidden, .visible]), .visible, "shows as Hidden")
+    }
+
     func testBadgeText() {
         XCTAssertEqual(["3", "99", "150", "!", "New!"].map(TrayGrid.badgeText), ["3", "99", "99+", "!", "New"])
     }

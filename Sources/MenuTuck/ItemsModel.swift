@@ -258,16 +258,29 @@ final class ItemsModel: ObservableObject {
     // MARK: - Move
 
     func move(_ item: MenuBarItem, to target: MenuSection) {
-        // Safe mid-scan: refresh() reads the saved override when it lands.
-        guard item.section != target else { return }
-        lastError = nil
-        prefs.setSectionOverride(target, for: item.storageKey)
+        move([item], to: target)
+    }
 
-        for idx in items.indices where items[idx].storageKey == item.storageKey {
+    /// One `apply()` for the whole batch. Safe mid-scan: refresh() reads the saved override when it lands.
+    func move(_ moving: [MenuBarItem], to target: MenuSection) {
+        let keys = Set(moving.filter { $0.section != target }.map(\.storageKey))
+        guard !keys.isEmpty else { return }
+        lastError = nil
+        for key in keys { prefs.setSectionOverride(target, for: key) }
+
+        for idx in items.indices where keys.contains(items[idx].storageKey) {
             items[idx].section = target
             cachedByID[items[idx].id]?.section = target
         }
 
         controller?.apply()
+    }
+
+    /// The column `step` places away from where `section` shows, or nil at the edge.
+    /// Always Hidden shows under Hidden while that column is off.
+    static func neighbor(of section: MenuSection, step: Int, in columns: [MenuSection]) -> MenuSection? {
+        let shown = columns.contains(section) ? section : .hidden
+        guard let index = columns.firstIndex(of: shown), columns.indices.contains(index + step) else { return nil }
+        return columns[index + step]
     }
 }

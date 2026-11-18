@@ -32,6 +32,9 @@ private struct ItemsTab: View {
     }
 
     @State private var onboardingDone = false
+    /// Storage keys of the selected tiles.
+    @State private var selected: Set<String> = []
+    @State private var keyMonitor: Any?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -70,7 +73,7 @@ private struct ItemsTab: View {
 
                 HStack(alignment: .top, spacing: 8) {
                     ForEach(columns) { section in
-                        ArrangeColumn(model: model, section: section, targets: columns)
+                        ArrangeColumn(model: model, section: section, targets: columns, selected: $selected)
                     }
                 }
             }
@@ -97,7 +100,7 @@ private struct ItemsTab: View {
             }
 
             HStack(spacing: 8) {
-                Text("Drag icons between columns or right-click one. ⌘-dragging in the menu bar works too.")
+                Text("⌘-click to select several. Drag, right-click or ⌥←/⌥→ to move. ⌘-dragging in the menu bar works too.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -108,9 +111,12 @@ private struct ItemsTab: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Button("Rescan Menu Bar") { model.refresh(syncFromDividers: true) }
+                // Settings rescans on open; this is only for after ⌘-dragging with Settings already up.
+                Button { model.refresh(syncFromDividers: true) } label: { Image(systemName: "arrow.clockwise") }
+                    .buttonStyle(.borderless)
                     .disabled(model.isBusy || !model.isTrusted)
-                    .help("Re-scan the menu bar and sync sections from the current |› and ‖ divider positions")
+                    .help("Rescan the menu bar and sync sections from the current |› and ‖ divider positions")
+                    .accessibilityLabel("Rescan Menu Bar")
             }
         }
         .padding()
@@ -118,6 +124,28 @@ private struct ItemsTab: View {
             guard !model.isTrusted else { return }
             model.checkTrust()
             if model.isTrusted { model.refresh(syncFromDividers: true) }
+        }
+        .onChange(of: model.searchQuery) { selected = [] }
+        .onAppear(perform: startKeyMonitor)
+        .onDisappear {
+            if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+            keyMonitor = nil
+        }
+    }
+
+    /// ⌥← / ⌥→ moves the selected tiles one column over. Text fields keep the keys for word jumps.
+    private func startKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let step = event.keyCode == 123 ? -1 : event.keyCode == 124 ? 1 : 0
+            guard step != 0, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .option,
+                  !selected.isEmpty, !(event.window?.firstResponder is NSText) else { return event }
+            let picked = model.items.filter { selected.contains($0.storageKey) }
+            let byTarget = Dictionary(grouping: picked) { ItemsModel.neighbor(of: $0.section, step: step, in: columns) }
+            for (target, group) in byTarget {
+                if let target { model.move(group, to: target) }
+            }
+            return nil
         }
     }
 }
@@ -139,7 +167,7 @@ private struct NotchBanner: View {
                 .lineLimit(2)
                 Spacer()
                 Button("Move to Hidden") {
-                    for item in covered { model.move(item, to: .hidden) }
+                    model.move(covered, to: .hidden)
                 }
                 .help("Hidden icons open from the Tray, which the notch never covers")
             }
@@ -154,10 +182,12 @@ private struct ArrangeColumn: View {
     @ObservedObject var model: ItemsModel
     let section: MenuSection
     let targets: [MenuSection]
+    @Binding var selected: Set<String>
     @State private var isTargeted = false
 
     var body: some View {
         let items = model.items(in: section)
+        let picked = model.items.filter { selected.contains($0.storageKey) }
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Label(section.title, systemImage: section.symbol)
@@ -178,7 +208,17 @@ private struct ArrangeColumn: View {
                             .frame(maxWidth: .infinity, minHeight: 60)
                     }
                     ForEach(items) { item in
-                        ArrangeTile(item: item, targets: targets.filter { $0 != section }, model: model)
+                        let isSelected = selected.contains(item.storageKey)
+                        ArrangeTile(
+                            item: item, targets: targets.filter { $0 != section }, model: model,
+                            isSelected: isSelected,
+                            // Acting on a selected tile acts on the whole selection.
+                            group: isSelected ? picked : [item]
+                        ) { additive in
+                            if !additive { selected = [item.storageKey] }
+                            else if isSelected { selected.remove(item.storageKey) }
+                            else { selected.insert(item.storageKey) }
+                        }
                     }
                 }
             }
@@ -189,9 +229,10 @@ private struct ArrangeColumn: View {
             isTargeted ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08),
             in: RoundedRectangle(cornerRadius: 10)
         )
-        .dropDestination(for: String.self) { keys, _ in
+        .dropDestination(for: String.self) { payloads, _ in
+            let keys = Set(payloads.flatMap { $0.split(separator: "\n").map(String.init) })
             let dropped = model.items.filter { keys.contains($0.storageKey) }
-            for item in dropped { model.move(item, to: section) }
+            model.move(dropped, to: section)
             return !dropped.isEmpty
         } isTargeted: { isTargeted = $0 }
     }
@@ -201,6 +242,15 @@ private struct ArrangeTile: View {
     let item: MenuBarItem
     let targets: [MenuSection]
     let model: ItemsModel
+    let isSelected: Bool
+    /// What a drag or a Move command carries: the selection if this tile is in it, else just this tile.
+    let group: [MenuBarItem]
+    /// Called on click; true when ⌘ is held.
+    let onSelect: (Bool) -> Void
+
+    private var moveTitle: String {
+        group.count > 1 ? "Move \(group.count) Items to" : "Move to"
+    }
 
     private var subtitle: String? {
         let trimmed = item.detail.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -226,21 +276,34 @@ private struct ArrangeTile: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(.background.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+        .background(
+            isSelected ? AnyShapeStyle(Color.accentColor.opacity(0.25)) : AnyShapeStyle(.background.opacity(0.6)),
+            in: RoundedRectangle(cornerRadius: 6)
+        )
         .contentShape(Rectangle())
-        .draggable(item.storageKey) {
+        // Storage keys never hold newlines, so one string carries the whole group.
+        .draggable(group.map(\.storageKey).joined(separator: "\n")) {
             Image(nsImage: item.appIcon).resizable().frame(width: 24, height: 24)
+                .overlay(alignment: .topTrailing) {
+                    if group.count > 1 {
+                        Text("\(group.count)").font(.caption2.bold()).foregroundStyle(.white)
+                            .padding(.horizontal, 4).background(.red, in: Capsule())
+                    }
+                }
         }
         .onTapGesture(count: 2) { model.trigger(item) }
+        // Simultaneous, so selecting doesn't wait out the double-click interval.
+        .simultaneousGesture(TapGesture().onEnded { onSelect(NSEvent.modifierFlags.contains(.command)) })
         .help("Double-click to open \(item.appName)’s menu. Drag to another column to move it.")
         .contextMenu {
             Button("Open Menu") { model.trigger(item) }
             Divider()
             ForEach(targets) { target in
-                Button("Move to \(target.title)") { model.move(item, to: target) }
+                Button("\(moveTitle) \(target.title)") { model.move(group, to: target) }
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityAction(named: "Open Menu") { model.trigger(item) }
         .accessibilityActions {
             ForEach(targets) { target in
