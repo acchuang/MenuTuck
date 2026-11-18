@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.2.0)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.3.0)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -59,6 +59,15 @@
   - Native `SMAppService` Launch at Login support.
 
 ---
+
+## What's new in v0.3.0
+
+- **Pin to top.** Right-click a Tray item to pin it ahead of the smart order.
+- **Badge pulse.** A Tray tile pulses when its Dock badge appears or changes.
+- **Layout export/import.** *General* saves your sections to a JSON file and loads them back, e.g. on a new Mac.
+- **Multi-select.** ⌘-click several tiles on the arrange board and move them together, by drag, right-click or `⌥←`/`⌥→`.
+- **Faster Tray.** Opening the Tray rescans only tucked apps.
+- **Fixes.** Relaunching no longer overwrites saved sections; newly launched apps stay visible while icons are hidden; a warning appears when MenuTuck isn't signed with a certificate.
 
 ## What's new in v0.2.0
 
