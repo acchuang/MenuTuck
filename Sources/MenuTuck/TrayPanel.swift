@@ -100,8 +100,9 @@ final class TrayController: NSObject, NSWindowDelegate {
         self.anchor = anchor
         state.query = ""
         state.selection = 0
-        // ponytail: full AX rescan per open keeps tile text live; scan only tucked PIDs if it ever lags.
-        model.refresh()
+        // Tucked owners only; launch/quit observers already run full scans for new apps.
+        let tucked = Set(model.items.filter { $0.section != .visible && $0.isRunning }.map(\.pid))
+        model.refresh(onlyPIDs: tucked.isEmpty ? nil : tucked)
         DispatchQueue.global(qos: .userInitiated).async { [state] in
             let badges = DockBadges.read()
             DispatchQueue.main.async { state.badges = badges }

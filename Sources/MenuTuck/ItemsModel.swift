@@ -100,7 +100,8 @@ final class ItemsModel: ObservableObject {
     /// Scans menu bar items and classifies them relative to MenuTuck's dividers.
     /// - Parameter syncFromDividers: When `true` (when clicking "Rescan Menu Bar"), forces all saved
     ///   section overrides to match the current physical divider positions.
-    func refresh(syncFromDividers: Bool = false) {
+    /// - Parameter onlyPIDs: Scans just these processes; everything else keeps its current entry.
+    func refresh(syncFromDividers: Bool = false, onlyPIDs: Set<pid_t>? = nil) {
         checkTrust()
         let layout = controller?.layout()
         let currentlyHidden = MenuBarHider.shared.currentlyHiddenBundleIDs
@@ -108,7 +109,7 @@ final class ItemsModel: ObservableObject {
         isBusy = true
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let found = MenuBarScanner.scan()
+            let found = MenuBarScanner.scan(onlyPIDs: onlyPIDs)
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 let runningPIDs = Set(NSWorkspace.shared.runningApplications.map(\.processIdentifier))
@@ -116,9 +117,12 @@ final class ItemsModel: ObservableObject {
                 for item in found {
                     self.cachedByID[item.id] = item
                 }
+                let current = Dictionary(self.items.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
 
                 let merged = Array(self.cachedByID.values).sorted { $0.frame.minX < $1.frame.minX }
                 self.items = merged.map { item in
+                    // Unscanned frames are stale; classifying them against moved dividers would misfile them.
+                    if let onlyPIDs, !onlyPIDs.contains(item.pid), let existing = current[item.id] { return existing }
                     var item = item
                     let key = item.storageKey
                     let isHiddenByAssertion = currentlyHidden.contains(key)
@@ -230,24 +234,24 @@ final class ItemsModel: ObservableObject {
         guard let url = item.appURL else { return }
         let config = NSWorkspace.OpenConfiguration()
         config.activates = false
-        NSWorkspace.shared.openApplication(at: url, configuration: config) { [weak self] _, error in
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { [weak self] app, error in
             DispatchQueue.main.async {
                 if let error {
                     self?.lastError = "Could not launch \(item.appName): \(error.localizedDescription)"
-                } else {
-                    self?.openWhenListed(item.storageKey, tries: 10)
+                } else if let pid = app?.processIdentifier {
+                    self?.openWhenListed(item.storageKey, pid: pid, tries: 10)
                 }
             }
         }
     }
 
-    /// A freshly launched app takes a moment to put up its status item.
-    private func openWhenListed(_ key: String, tries: Int) {
-        if let live = items.first(where: { $0.storageKey == key }) { return trigger(live) }
+    /// A freshly launched app takes a moment to put up its status item. Scans only that app.
+    private func openWhenListed(_ key: String, pid: pid_t, tries: Int) {
+        if let live = items.first(where: { $0.storageKey == key && $0.isRunning }) { return trigger(live) }
         guard tries > 0 else { return }
-        refresh()
+        refresh(onlyPIDs: [pid])
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.openWhenListed(key, tries: tries - 1)
+            self?.openWhenListed(key, pid: pid, tries: tries - 1)
         }
     }
 
