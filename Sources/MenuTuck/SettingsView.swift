@@ -430,8 +430,15 @@ private struct GeneralTab: View {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        let data: Data
         do {
-            let count = try prefs.importLayout(Data(contentsOf: url))
+            data = try Data(contentsOf: url)
+        } catch {
+            layoutStatus = "Couldn't read \(url.lastPathComponent): \(error.localizedDescription)"
+            return
+        }
+        do {
+            let count = try prefs.importLayout(data)
             model.refresh()
             layoutStatus = "Imported \(count) apps."
         } catch {
