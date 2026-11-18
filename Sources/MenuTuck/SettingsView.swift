@@ -330,6 +330,11 @@ private struct GeneralTab: View {
                     Label("This macOS doesn't provide the menu bar API MenuTuck needs. Icons won't be hidden.", systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
                 }
+            } else if MenuBarHider.lacksCertificate {
+                Section {
+                    Label("This build isn't signed with a certificate, so MenuTuck's own |‹ and ‖ go blank while icons are hidden. Rebuild with scripts/build-app.sh.", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
             }
 
             Section("Reveal") {

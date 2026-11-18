@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import os
+import Security
 
 @objc private protocol MBAssessmentModeConfigurationProtocol: NSObjectProtocol {
     init(allowedSystemItems: [NSNumber], allowedBundleIdentifiers: [String])
@@ -34,6 +35,19 @@ final class MenuBarHider {
         configType != nil && assertionType != nil
     }
 
+    /// MenuBarAgent resolves no bundle ID for an ad-hoc signed or unsigned app, so the allowlist
+    /// misses MenuTuck and its own toggle and dividers draw blank while icons are hidden.
+    static let lacksCertificate: Bool = {
+        var code: SecCode?
+        var staticCode: SecStaticCode?
+        var info: CFDictionary?
+        guard SecCodeCopySelf([], &code) == errSecSuccess, let code,
+              SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode,
+              SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
+              let dict = info as? [String: Any] else { return false }
+        return (dict[kSecCodeInfoCertificates as String] as? [Any])?.isEmpty ?? true
+    }()
+
     private init() {
         _ = dlopen("/System/Library/PrivateFrameworks/MenuBarClientCore.framework/MenuBarClientCore", RTLD_NOW)
         // Private API: confirm every selector we call exists, so a changed signature
@@ -46,6 +60,9 @@ final class MenuBarHider {
            class_respondsToSelector(assClass, #selector(MBAssessmentModeAssertionProtocol.invalidate)) {
             configType = unsafeBitCast(cfgClass, to: MBAssessmentModeConfigurationProtocol.Type.self)
             assertionType = unsafeBitCast(assClass, to: MBAssessmentModeAssertionProtocol.Type.self)
+            if Self.lacksCertificate {
+                Self.log.warning("Running ad-hoc signed or unsigned; MenuTuck's own menu bar items will be blank while icons are hidden. Sign with a certificate (scripts/build-app.sh).")
+            }
         } else {
             Self.log.error("MenuBarClientCore unusable (configuration class: \(cfgClass != nil), assertion class: \(assClass != nil), or a selector changed); hiding disabled")
             configType = nil
