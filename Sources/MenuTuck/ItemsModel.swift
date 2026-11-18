@@ -258,7 +258,8 @@ final class ItemsModel: ObservableObject {
     // MARK: - Move
 
     func move(_ item: MenuBarItem, to target: MenuSection) {
-        guard item.section != target, !isBusy else { return }
+        // Safe mid-scan: refresh() reads the saved override when it lands.
+        guard item.section != target else { return }
         lastError = nil
         prefs.setSectionOverride(target, for: item.storageKey)
 
