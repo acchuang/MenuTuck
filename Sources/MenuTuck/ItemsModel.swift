@@ -247,7 +247,7 @@ final class ItemsModel: ObservableObject {
 
     /// A freshly launched app takes a moment to put up its status item. Scans only that app.
     private func openWhenListed(_ key: String, pid: pid_t, tries: Int) {
-        if let live = items.first(where: { $0.storageKey == key && $0.isRunning }) { return trigger(live) }
+        if let live = items.first(where: { $0.storageKey == key && $0.pid == pid }) { return trigger(live) }
         guard tries > 0 else { return }
         refresh(onlyPIDs: [pid])
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
