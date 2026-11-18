@@ -16,7 +16,6 @@ final class Preferences: ObservableObject {
         static let hoverReveal = "hoverReveal"
         static let newAppSection = "newAppSection"
         static let sectionOverrides = "sectionOverrides"
-        static let lastPhysicalSections = "lastPhysicalSections"
         static let revealStyle = "revealStyle"
         static let didOnboard = "didOnboard"
         static let openCounts = "openCounts"
@@ -31,7 +30,8 @@ final class Preferences: ObservableObject {
     }
 
     private let defaults = UserDefaults.standard
-    private var lastPhysicalSections: [String: String]
+    /// Where each item physically sat at its last scan. This launch only: divider positions don't survive a relaunch.
+    private var lastPhysicalSections: [String: MenuSection] = [:]
 
     static let autoHideDelays: [Double] = [5, 15, 30]
 
@@ -100,7 +100,7 @@ final class Preferences: ObservableObject {
         let overrides = (defaults.dictionary(forKey: Key.sectionOverrides) as? [String: String]) ?? [:]
         sectionOverrides = overrides
         pinned = Set(defaults.stringArray(forKey: Key.pinned) ?? [])
-        lastPhysicalSections = (defaults.dictionary(forKey: Key.lastPhysicalSections) as? [String: String]) ?? [:]
+        defaults.removeObject(forKey: "lastPhysicalSections") // persisted by older builds
         didOnboard = defaults.object(forKey: Key.didOnboard) as? Bool ?? !overrides.isEmpty
     }
 
@@ -118,16 +118,9 @@ final class Preferences: ObservableObject {
         sectionOverrides[key] = section.rawValue
     }
 
-    func lastPhysicalSection(for key: String) -> MenuSection? {
-        guard let raw = lastPhysicalSections[key] else { return nil }
-        return MenuSection(rawValue: raw)
-    }
+    func lastPhysicalSection(for key: String) -> MenuSection? { lastPhysicalSections[key] }
 
-    func setLastPhysicalSection(_ section: MenuSection, for key: String) {
-        guard lastPhysicalSections[key] != section.rawValue else { return }
-        lastPhysicalSections[key] = section.rawValue
-        defaults.set(lastPhysicalSections, forKey: Key.lastPhysicalSections)
-    }
+    func setLastPhysicalSection(_ section: MenuSection, for key: String) { lastPhysicalSections[key] = section }
 
     func bundleIDs(in sections: Set<MenuSection>) -> Set<String> {
         var result = Set<String>()

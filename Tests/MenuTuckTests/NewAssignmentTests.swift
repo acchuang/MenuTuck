@@ -23,7 +23,11 @@ final class NewAssignmentTests: XCTestCase {
 
     func testCrossingADividerReassigns() {
         XCTAssertEqual(assign(.hidden, saved: .visible, last: .visible, new: .visible), .hidden)
-        XCTAssertEqual(assign(.hidden, saved: .visible), .hidden, "first sighting outside Visible counts as a move")
+    }
+
+    func testFirstSightingAfterLaunchKeepsTheSavedSection() {
+        XCTAssertNil(assign(.visible, saved: .alwaysHidden), "dividers re-placed on relaunch, not a drag")
+        XCTAssertNil(assign(.hidden, saved: .visible))
     }
 
     func testFullSyncAlwaysFollowsPosition() {

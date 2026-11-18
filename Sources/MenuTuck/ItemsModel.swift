@@ -173,7 +173,8 @@ final class ItemsModel: ObservableObject {
     }
 
     /// An item is reassigned when the user asks for a full divider sync, when it is new, or when it
-    /// physically crossed a divider (which includes a first sighting outside Visible).
+    /// crossed a divider since it was last seen this launch. A first sighting only sets the baseline:
+    /// after a relaunch MenuBarAgent can put the dividers somewhere else, which is not a user drag.
     static func newAssignment(
         detected: MenuSection,
         saved: MenuSection?,
@@ -182,9 +183,8 @@ final class ItemsModel: ObservableObject {
         force: Bool
     ) -> MenuSection? {
         if force { return detected }
-        if saved == nil, lastPhysical == nil, let newAppSection { return newAppSection }
-        let moved = lastPhysical == nil ? detected != .visible : lastPhysical != detected
-        return moved || saved == nil ? detected : nil
+        guard let lastPhysical else { return saved == nil ? newAppSection ?? detected : nil }
+        return lastPhysical != detected || saved == nil ? detected : nil
     }
 
     private static func sectionFromFrame(
