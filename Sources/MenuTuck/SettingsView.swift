@@ -138,7 +138,10 @@ private struct ItemsTab: View {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let step = ItemsModel.moveStep(keyCode: event.keyCode, flags: event.modifierFlags)
-            guard step != 0, !selected.isEmpty, !(event.window?.firstResponder is NSText) else { return event }
+            // Local monitors see every window of the app; leave the Tray and other windows alone.
+            guard step != 0, !selected.isEmpty,
+                  event.window?.contentViewController is NSHostingController<SettingsView>,
+                  !(event.window?.firstResponder is NSText) else { return event }
             let picked = model.items.filter { selected.contains($0.storageKey) }
             let byTarget = Dictionary(grouping: picked) { ItemsModel.neighbor(of: $0.section, step: step, in: columns) }
             for (target, group) in byTarget {
