@@ -139,6 +139,32 @@ final class Preferences: ObservableObject {
         return result
     }
 
+    struct Layout: Codable, Equatable {
+        var sections: [String: String]
+        var alwaysHiddenEnabled: Bool
+    }
+
+    func exportLayout() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(Layout(sections: sectionOverrides, alwaysHiddenEnabled: alwaysHiddenEnabled))
+    }
+
+    /// Merges a saved layout over the current one. Unknown section names are dropped. Returns how many items it set.
+    @discardableResult
+    func importLayout(_ data: Data) throws -> Int {
+        let layout = try Self.parseLayout(data)
+        sectionOverrides.merge(layout.sections) { _, new in new }
+        if layout.alwaysHiddenEnabled { alwaysHiddenEnabled = true }
+        return layout.sections.count
+    }
+
+    static func parseLayout(_ data: Data) throws -> Layout {
+        var layout = try JSONDecoder().decode(Layout.self, from: data)
+        layout.sections = layout.sections.filter { MenuSection(rawValue: $0.value) != nil }
+        return layout
+    }
+
     /// How often each item was opened, so the Tray can put favorites first.
     var openCounts: [String: Int] { defaults.dictionary(forKey: Key.openCounts) as? [String: Int] ?? [:] }
 

@@ -11,7 +11,7 @@ struct SettingsView: View {
         TabView {
             ItemsTab(prefs: prefs, model: model)
                 .tabItem { Label("Menu Bar Items", systemImage: "menubar.rectangle") }
-            GeneralTab(prefs: prefs, sections: sections)
+            GeneralTab(prefs: prefs, sections: sections, model: model)
                 .tabItem { Label("General", systemImage: "gearshape") }
         }
         .padding(.top, 8)
@@ -319,8 +319,10 @@ private struct ArrangeTile: View {
 private struct GeneralTab: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject var sections: SectionController
+    let model: ItemsModel
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
+    @State private var layoutStatus: String?
 
     var body: some View {
         Form {
@@ -380,6 +382,18 @@ private struct GeneralTab: View {
             }
 
             Section {
+                LabeledContent("Layout") {
+                    HStack {
+                        Button("Export…", action: exportLayout)
+                        Button("Import…", action: importLayout)
+                    }
+                }
+                Text(layoutStatus ?? "Saves which section each app goes in, to restore later or copy to another Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev build")
                 Button("Check for Updates…") { UpdateChecker.run() }
                 DisclosureGroup("macOS 27 notes") {
@@ -390,6 +404,32 @@ private struct GeneralTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func exportLayout() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "MenuTuck Layout.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try prefs.exportLayout().write(to: url)
+            layoutStatus = "Exported \(prefs.sectionOverrides.count) apps."
+        } catch {
+            layoutStatus = "Couldn't export: \(error.localizedDescription)"
+        }
+    }
+
+    private func importLayout() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let count = try prefs.importLayout(Data(contentsOf: url))
+            model.refresh()
+            layoutStatus = "Imported \(count) apps."
+        } catch {
+            layoutStatus = "Not a MenuTuck layout file."
+        }
     }
 
     /// 0 means auto-hide is off; any other value is the delay.
