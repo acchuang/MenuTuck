@@ -3,7 +3,18 @@ import SwiftUI
 
 /// Pure grid logic for the Tray, kept apart so it can be tested.
 enum TrayGrid {
-    static let columns = 5
+    /// One row up to 6 tiles, then the fewest rows of at most 6, balanced so the last row isn't a stub.
+    static func columns(for count: Int) -> Int {
+        guard count > 6 else { return max(count, 1) }
+        let rows = (count + 5) / 6
+        return (count + rows - 1) / rows
+    }
+
+    /// Dock badge as shown on a tile: big counts collapse to "99+", text badges stay short.
+    static func badgeText(_ raw: String) -> String {
+        if let n = Int(raw) { return n > 99 ? "99+" : raw }
+        return String(raw.prefix(3))
+    }
 
     /// Running before not running; within each, most opened first, then Hidden before Always Hidden, in bar order.
     static func tiles(from items: [MenuBarItem], query: String, openCounts: [String: Int] = [:]) -> [MenuBarItem] {
@@ -20,6 +31,7 @@ enum TrayGrid {
     /// Arrow-key move in a grid of `count` tiles. Stays put at an edge.
     static func move(_ index: Int, keyCode: UInt16, count: Int) -> Int {
         let target: Int
+        let columns = columns(for: count)
         switch keyCode {
         case 123: target = index - 1
         case 124: target = index + 1
@@ -78,6 +90,7 @@ final class TrayController: NSObject, NSWindowDelegate {
     private var anchor: CGRect?
     /// A click on the toggle resigns the panel before the click lands; without this it would reopen at once.
     private var closedAt: Date = .distantPast
+    var onOpenSettings: (() -> Void)?
 
     init(model: ItemsModel) {
         self.model = model
@@ -108,7 +121,9 @@ final class TrayController: NSObject, NSWindowDelegate {
             DispatchQueue.main.async { state.badges = badges }
         }
 
-        let view = TrayView(model: model, prefs: .shared, state: state) { [weak self] in self?.openItem($0) }
+        let view = TrayView(model: model, prefs: .shared, state: state,
+                            open: { [weak self] in self?.openItem($0) },
+                            openSettings: { [weak self] in self?.openSettings() })
         let panel = TrayPanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
         let host = NSHostingView(rootView: view)
         host.sizingOptions = [.preferredContentSize]
@@ -165,15 +180,18 @@ final class TrayController: NSObject, NSWindowDelegate {
 
     private func handleKey(_ event: NSEvent) -> Bool {
         let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query, openCounts: Preferences.shared.openCounts)
+        let command = event.modifierFlags.contains(.command)
         switch event.keyCode {
-        case 53: // Esc
-            close()
+        case 53: // Esc clears a filter first, then closes.
+            if state.query.isEmpty { close() } else { state.query = ""; state.selection = 0 }
         case 36, 76: // Return, keypad Enter
             if tiles.indices.contains(state.selection) { openItem(tiles[state.selection]) }
-        case 51: // Delete
+        case 51: // Delete; ⌘Delete clears
             guard !state.query.isEmpty else { return true }
-            state.query.removeLast()
+            if command { state.query = "" } else { state.query.removeLast() }
             state.selection = 0
+        case 43 where command: // ⌘,
+            openSettings()
         case 123...126:
             state.selection = TrayGrid.move(state.selection, keyCode: event.keyCode, count: tiles.count)
         default:
@@ -195,6 +213,11 @@ final class TrayController: NSObject, NSWindowDelegate {
         close()
         model.trigger(item)
     }
+
+    private func openSettings() {
+        close()
+        onOpenSettings?()
+    }
 }
 
 private struct TrayView: View {
@@ -202,38 +225,77 @@ private struct TrayView: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject var state: TrayState
     let open: (MenuBarItem) -> Void
+    let openSettings: () -> Void
 
     var body: some View {
         let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query, openCounts: Preferences.shared.openCounts)
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                Text(state.query.isEmpty ? "Type to filter" : state.query)
-                    .foregroundStyle(state.query.isEmpty ? .secondary : .primary)
-                Spacer(minLength: 0)
-            }
-            .font(.callout)
-            .foregroundStyle(.secondary)
+            filterRow
 
             if !model.isTrusted {
-                Button("Grant Accessibility Access…") { model.requestTrust() }
+                placeholder("lock.shield", "Accessibility access needed",
+                            "MenuTuck reads and clicks menu bar icons through Accessibility.") {
+                    Button("Grant Access…") { model.requestTrust() }.controlSize(.small)
+                }
+            } else if tiles.isEmpty, state.query.isEmpty {
+                placeholder("tray", "Nothing tucked away", "⌘-drag an icon left of |› to tuck it here.") { EmptyView() }
             } else if tiles.isEmpty {
-                Text(state.query.isEmpty ? "No hidden icons. ⌘-drag an icon left of |› to tuck it here." : "No matches")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 60)
+                placeholder("magnifyingglass", "No matches for “\(state.query)”", "esc clears the filter.") { EmptyView() }
             } else {
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(76), spacing: 4), count: min(tiles.count, TrayGrid.columns)), spacing: 4) {
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(76), spacing: 4), count: TrayGrid.columns(for: tiles.count)), spacing: 4) {
                     ForEach(Array(tiles.enumerated()), id: \.element.id) { index, item in
                         tile(item, index: index)
                     }
                 }
             }
+
+            Divider()
+            footer
         }
         .padding(12)
-        .frame(minWidth: 240)
+        .frame(minWidth: 260)
         .fixedSize()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var filterRow: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            HStack(spacing: 1) {
+                if !state.query.isEmpty { Text(state.query) }
+                Rectangle().fill(Color.accentColor).frame(width: 1.5, height: 14)
+                if state.query.isEmpty { Text("Filter hidden icons").foregroundStyle(.tertiary) }
+            }
+            Spacer(minLength: 0)
+        }
+        .font(.callout)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(state.query.isEmpty ? "Filter, empty. Type to filter." : "Filter: \(state.query)")
+    }
+
+    private func placeholder<Action: View>(_ symbol: String, _ title: String, _ hint: String,
+                                           @ViewBuilder action: () -> Action) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: symbol).font(.title2).foregroundStyle(.secondary)
+            Text(title).font(.callout.weight(.medium))
+            Text(hint).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            action()
+        }
+        .frame(maxWidth: .infinity, minHeight: 90)
+        .frame(width: 236)
+    }
+
+    private var footer: some View {
+        HStack {
+            Text("↩ Open  ·  ⌘, Settings  ·  esc Close")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Button(action: openSettings) { Image(systemName: "gearshape") }
+                .buttonStyle(.borderless)
+                .help("Settings (⌘,)")
+                .accessibilityLabel("Settings")
+        }
     }
 
     private func badge(_ item: MenuBarItem) -> String? {
@@ -249,8 +311,14 @@ private struct TrayView: View {
                 .saturation(item.isRunning ? 1 : 0)
                 .opacity(item.isRunning ? 1 : 0.55)
                 .overlay(alignment: .topTrailing) {
-                    if badge(item) != nil {
-                        Circle().fill(.red).frame(width: 9, height: 9).offset(x: 3, y: -2)
+                    if let text = badge(item).map(TrayGrid.badgeText) {
+                        Text(text)
+                            .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .frame(minWidth: 14, minHeight: 14)
+                            .background(.red, in: Capsule())
+                            .offset(x: 6, y: -4)
                     }
                 }
             Text(item.appName)
@@ -263,7 +331,12 @@ private struct TrayView: View {
         }
         .padding(.vertical, 6)
         .frame(width: 76)
-        .background(index == state.selection ? Color.accentColor.opacity(0.22) : .clear, in: RoundedRectangle(cornerRadius: 8))
+        .background(index == state.selection ? Color.accentColor.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            if index == state.selection {
+                RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 1.5)
+            }
+        }
         .overlay(alignment: .topLeading) {
             if state.query.isEmpty, index < 9 {
                 Text("\(index + 1)")
