@@ -137,9 +137,8 @@ private struct ItemsTab: View {
     private func startKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            let step = event.keyCode == 123 ? -1 : event.keyCode == 124 ? 1 : 0
-            guard step != 0, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .option,
-                  !selected.isEmpty, !(event.window?.firstResponder is NSText) else { return event }
+            let step = ItemsModel.moveStep(keyCode: event.keyCode, flags: event.modifierFlags)
+            guard step != 0, !selected.isEmpty, !(event.window?.firstResponder is NSText) else { return event }
             let picked = model.items.filter { selected.contains($0.storageKey) }
             let byTarget = Dictionary(grouping: picked) { ItemsModel.neighbor(of: $0.section, step: step, in: columns) }
             for (target, group) in byTarget {

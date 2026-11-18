@@ -283,4 +283,10 @@ final class ItemsModel: ObservableObject {
         guard let index = columns.firstIndex(of: shown), columns.indices.contains(index + step) else { return nil }
         return columns[index + step]
     }
+
+    /// ⌥← = -1, ⌥→ = 1, else 0. Arrow keys also carry .numericPad and .function, so only compare the real modifiers.
+    static func moveStep(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Int {
+        guard flags.intersection([.command, .option, .control, .shift]) == .option else { return 0 }
+        return keyCode == 123 ? -1 : keyCode == 124 ? 1 : 0
+    }
 }

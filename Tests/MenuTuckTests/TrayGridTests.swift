@@ -61,6 +61,14 @@ final class TrayGridTests: XCTestCase {
         XCTAssertEqual(ItemsModel.neighbor(of: .alwaysHidden, step: 1, in: [.hidden, .visible]), .visible, "shows as Hidden")
     }
 
+    func testOptionArrowsIgnoreNumericPadAndFunctionFlags() {
+        let arrow: NSEvent.ModifierFlags = [.option, .numericPad, .function]
+        XCTAssertEqual(ItemsModel.moveStep(keyCode: 123, flags: arrow), -1)
+        XCTAssertEqual(ItemsModel.moveStep(keyCode: 124, flags: arrow), 1)
+        XCTAssertEqual(ItemsModel.moveStep(keyCode: 124, flags: [.option, .shift, .function]), 0)
+        XCTAssertEqual(ItemsModel.moveStep(keyCode: 125, flags: arrow), 0)
+    }
+
     func testBadgeText() {
         XCTAssertEqual(["3", "99", "150", "!", "New!"].map(TrayGrid.badgeText), ["3", "99", "99+", "!", "New"])
     }
