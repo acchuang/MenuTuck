@@ -89,6 +89,8 @@ final class SectionController: NSObject, ObservableObject {
 
         let wsCenter = NSWorkspace.shared.notificationCenter
         wsCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            // The allowlist is a snapshot of running apps; without this a new app stays blank until the next apply.
+            self?.apply()
             self?.onLayoutChanged?()
         }
         wsCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
