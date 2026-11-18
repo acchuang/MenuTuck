@@ -224,6 +224,7 @@ private struct TrayView: View {
     @ObservedObject var model: ItemsModel
     @ObservedObject var prefs: Preferences
     @ObservedObject var state: TrayState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let open: (MenuBarItem) -> Void
     let openSettings: () -> Void
 
@@ -311,15 +312,21 @@ private struct TrayView: View {
                 .saturation(item.isRunning ? 1 : 0)
                 .opacity(item.isRunning ? 1 : 0.55)
                 .overlay(alignment: .topTrailing) {
-                    if let text = badge(item).map(TrayGrid.badgeText) {
-                        Text(text)
-                            .font(.system(size: 9, weight: .semibold).monospacedDigit())
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .frame(minWidth: 14, minHeight: 14)
-                            .background(.red, in: Capsule())
-                            .offset(x: 6, y: -4)
+                    Group {
+                        if let text = badge(item).map(TrayGrid.badgeText) {
+                            Text(text)
+                                .font(.system(size: 9, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .frame(minWidth: 14, minHeight: 14)
+                                .background(.red, in: Capsule())
+                        }
                     }
+                    // Pulses when a badge appears or changes; badges are kept between opens, so an unchanged one stays still.
+                    .phaseAnimator([1.0, reduceMotion ? 1.0 : 1.4, 1.0], trigger: badge(item)) { content, scale in
+                        content.scaleEffect(scale)
+                    } animation: { _ in .spring(duration: 0.25) }
+                    .offset(x: 6, y: -4)
                 }
             Text(item.appName)
                 .font(.caption)
