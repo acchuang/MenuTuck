@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Build MenuTuck.app from the Swift package and install to /Applications/MenuTuck.app.
 # Usage: scripts/build-app.sh [debug|release]   (default: release)
-# Env:   SIGN_IDENTITY  codesign identity. Default: ad-hoc ("-").
+# Env:   SIGN_IDENTITY  codesign identity. Default: "MenuTuck Dev" if in the keychain, else ad-hoc ("-").
 #        SKIP_INSTALL   set to 1 to leave /Applications/MenuTuck.app untouched.
 set -euo pipefail
 
@@ -20,12 +20,18 @@ if [ -f "Resources/AppIcon.icns" ]; then
     cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 fi
 
-SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+# MenuBarAgent resolves no bundle ID for an ad-hoc signed app, so while hiding is on
+# the assertion allowlist misses MenuTuck and its own toggle and dividers draw blank.
+if [ -z "${SIGN_IDENTITY:-}" ]; then
+    if security find-identity -v -p codesigning | grep -q '"MenuTuck Dev"'; then
+        SIGN_IDENTITY="MenuTuck Dev"
+    else
+        SIGN_IDENTITY="-"
+        echo "warning: ad-hoc signing; MenuTuck's own menu bar items will be blank while icons are hidden" >&2
+    fi
+fi
 codesign --force --sign "$SIGN_IDENTITY" --identifier com.acchuang.MenuTuck --timestamp=none "$APP"
 
-# Install to /Applications/MenuTuck.app so macOS 27's sandboxed MenuBarAgent
-# always resolves CFBundleIdentifier ("com.acchuang.MenuTuck") and keeps MenuTuck's
-# own status items and dividers visible when MBAssessmentModeAssertion is active.
 if [ "${SKIP_INSTALL:-0}" != 1 ] && [ -w "/Applications" ]; then
     rm -rf "/Applications/MenuTuck.app"
     cp -R "$APP" "/Applications/MenuTuck.app"
