@@ -18,6 +18,12 @@ final class TrayGridTests: XCTestCase {
         XCTAssertEqual(TrayGrid.tiles(from: items, query: "", openCounts: counts).map(\.appName), ["B", "C", "A", "Off"])
     }
 
+    func testPinnedLeadEvenWhenNotRunning() {
+        let items = [item("A", .hidden), item("B", .hidden), item("Off", .hidden, pid: 0)]
+        let tiles = TrayGrid.tiles(from: items, query: "", openCounts: ["A": 5], pinned: ["Off", "B"])
+        XCTAssertEqual(tiles.map(\.appName), ["B", "Off", "A"])
+    }
+
     func testTilesListHiddenThenAlwaysHiddenAndFilter() {
         let items = [item("A", .alwaysHidden), item("B", .visible), item("C", .hidden), item("D", .hidden, detail: "Battery 80%")]
         XCTAssertEqual(TrayGrid.tiles(from: items, query: "").map(\.appName), ["C", "D", "A"])

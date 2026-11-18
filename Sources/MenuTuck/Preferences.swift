@@ -20,6 +20,7 @@ final class Preferences: ObservableObject {
         static let revealStyle = "revealStyle"
         static let didOnboard = "didOnboard"
         static let openCounts = "openCounts"
+        static let pinned = "pinned"
     }
 
     enum RevealStyle: String {
@@ -69,6 +70,8 @@ final class Preferences: ObservableObject {
     @Published var sectionOverrides: [String: String] {
         didSet { defaults.set(sectionOverrides, forKey: Key.sectionOverrides) }
     }
+    /// Storage keys of items pinned to the top of the Tray.
+    @Published var pinned: Set<String> { didSet { defaults.set(pinned.sorted(), forKey: Key.pinned) } }
 
     private init() {
         defaults.register(defaults: [
@@ -96,6 +99,7 @@ final class Preferences: ObservableObject {
             ?? (hasNotch ? .tray : .menuBar)
         let overrides = (defaults.dictionary(forKey: Key.sectionOverrides) as? [String: String]) ?? [:]
         sectionOverrides = overrides
+        pinned = Set(defaults.stringArray(forKey: Key.pinned) ?? [])
         lastPhysicalSections = (defaults.dictionary(forKey: Key.lastPhysicalSections) as? [String: String]) ?? [:]
         didOnboard = defaults.object(forKey: Key.didOnboard) as? Bool ?? !overrides.isEmpty
     }

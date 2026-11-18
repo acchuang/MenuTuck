@@ -16,11 +16,14 @@ enum TrayGrid {
         return String(raw.prefix(3))
     }
 
-    /// Running before not running; within each, most opened first, then Hidden before Always Hidden, in bar order.
-    static func tiles(from items: [MenuBarItem], query: String, openCounts: [String: Int] = [:]) -> [MenuBarItem] {
-        func rank(_ entry: (offset: Int, element: MenuBarItem)) -> (Int, Int, Int, Int) {
+    /// Pinned first, then running before not running; within each, most opened first,
+    /// then Hidden before Always Hidden, in bar order.
+    static func tiles(from items: [MenuBarItem], query: String, openCounts: [String: Int] = [:],
+                      pinned: Set<String> = []) -> [MenuBarItem] {
+        func rank(_ entry: (offset: Int, element: MenuBarItem)) -> (Int, Int, Int, Int, Int) {
             let item = entry.element
-            return (item.isRunning ? 0 : 1, -(openCounts[item.storageKey] ?? 0), item.section == .hidden ? 0 : 1, entry.offset)
+            return (pinned.contains(item.storageKey) ? 0 : 1, item.isRunning ? 0 : 1,
+                    -(openCounts[item.storageKey] ?? 0), item.section == .hidden ? 0 : 1, entry.offset)
         }
         return items.enumerated()
             .filter { $0.element.section != .visible && $0.element.matches(query) }
@@ -179,7 +182,9 @@ final class TrayController: NSObject, NSWindowDelegate {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
-        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query, openCounts: Preferences.shared.openCounts)
+        let prefs = Preferences.shared
+        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query,
+                                   openCounts: prefs.openCounts, pinned: prefs.pinned)
         let command = event.modifierFlags.contains(.command)
         switch event.keyCode {
         case 53: // Esc clears a filter first, then closes.
@@ -229,7 +234,8 @@ private struct TrayView: View {
     let openSettings: () -> Void
 
     var body: some View {
-        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query, openCounts: Preferences.shared.openCounts)
+        let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query,
+                                   openCounts: prefs.openCounts, pinned: prefs.pinned)
         VStack(alignment: .leading, spacing: 10) {
             filterRow
 
@@ -353,12 +359,13 @@ private struct TrayView: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            if item.section == .alwaysHidden {
-                Image(systemName: MenuSection.alwaysHidden.symbol)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(4)
+            HStack(spacing: 2) {
+                if prefs.pinned.contains(item.storageKey) { Image(systemName: "pin.fill") }
+                if item.section == .alwaysHidden { Image(systemName: MenuSection.alwaysHidden.symbol) }
             }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .padding(4)
         }
         .contentShape(Rectangle())
         .onTapGesture { open(item) }
@@ -374,6 +381,9 @@ private struct TrayView: View {
     @ViewBuilder
     private func menu(for item: MenuBarItem) -> some View {
         Button(item.isRunning ? "Open Menu" : "Open \(item.appName)") { open(item) }
+        Button(prefs.pinned.contains(item.storageKey) ? "Unpin" : "Pin to Top") {
+            prefs.pinned.formSymmetricDifference([item.storageKey])
+        }
         Divider()
         ForEach(MenuSection.allCases.filter { $0 != item.section && ($0 != .alwaysHidden || prefs.alwaysHiddenEnabled) }) { section in
             Button("Move to \(section.title)") { model.move(item, to: section) }
