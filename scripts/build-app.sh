@@ -23,7 +23,9 @@ fi
 # MenuBarAgent resolves no bundle ID for an ad-hoc signed app, so while hiding is on
 # the assertion allowlist misses MenuTuck and its own toggle and dividers draw blank.
 if [ -z "${SIGN_IDENTITY:-}" ]; then
-    if security find-identity -v -p codesigning | grep -q '"MenuTuck Dev"'; then
+    # Capture first: under pipefail, grep -q exiting early can SIGPIPE `security` and fail the test.
+    IDENTITIES="$(security find-identity -v -p codesigning || true)"
+    if grep -q '"MenuTuck Dev"' <<<"$IDENTITIES"; then
         SIGN_IDENTITY="MenuTuck Dev"
     else
         SIGN_IDENTITY="-"
