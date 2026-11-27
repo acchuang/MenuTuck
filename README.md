@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.3.0)</strong></a> ·
+  <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck.dmg"><strong>⬇ Download MenuTuck.dmg (v0.3.1)</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases/latest/download/MenuTuck-macOS.zip"><strong>⬇ Download MenuTuck-macOS.zip</strong></a> ·
   <a href="https://github.com/acchuang/MenuTuck/releases"><strong>All Releases</strong></a>
 </p>
@@ -59,6 +59,14 @@
   - Native `SMAppService` Launch at Login support.
 
 ---
+
+## What's new in v0.3.1
+
+- **Onboarding & Accessibility fixes.** First-run setup no longer skips Steps 2–3 after relaunching with Accessibility, and re-granting Accessibility after an update preserves saved sections instead of overwriting them. Onboarding copy adapts to menu-bar reveal mode.
+- **Always Hidden & scan stability.** Collapsing or turning off dividers no longer demotes Always Hidden icons to Hidden; pre-collapse sync skips already-hidden apps; overlapping scans no longer clear the busy indicator early or overwrite newer results; notch detection checks the notched display's Y band.
+- **Tray & hotkeys.** Keyboard selection clamps cleanly when tiles shrink, function keys no longer corrupt the filter query, *Grant Access…* and *Show in Finder* close the Tray, and Dock badge reads enforce Accessibility and a timeout. Recording shortcuts pauses MenuTuck's own hot keys, keeps only one recorder active, and avoids swallowing keys in save/open panels.
+- **Hover & peek fixes.** Hover reveal honors the active reveal style and works across multi-display arrangements; releasing a Tray peek after opening an item no longer collapses the menu bar.
+- **Updater & packaging.** Update checks ignore duplicate clicks, verify HTTP 200 and HTTPS release URLs, and `scripts/package.sh` avoids a `pipefail` SIGPIPE false-negative.
 
 ## What's new in v0.3.0
 
