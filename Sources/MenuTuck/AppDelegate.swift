@@ -49,9 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Show the settings window once, so a new user sees how the app works.
-        let defaults = UserDefaults.standard
-        if !defaults.bool(forKey: "didOnboard") {
-            defaults.set(true, forKey: "didOnboard")
+        if !Preferences.shared.didOnboard {
             openSettings()
         }
     }

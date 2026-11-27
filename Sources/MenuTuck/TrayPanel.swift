@@ -33,16 +33,25 @@ enum TrayGrid {
 
     /// Arrow-key move in a grid of `count` tiles. Stays put at an edge.
     static func move(_ index: Int, keyCode: UInt16, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        let current = min(max(index, 0), count - 1)
         let target: Int
         let columns = columns(for: count)
         switch keyCode {
-        case 123: target = index - 1
-        case 124: target = index + 1
-        case 125: target = index + columns
-        case 126: target = index - columns
-        default: return index
+        case 123: target = current - 1
+        case 124: target = current + 1
+        case 125: target = current + columns
+        case 126: target = current - columns
+        default: return current
         }
-        return (0..<count).contains(target) ? target : index
+        return (0..<count).contains(target) ? target : current
+    }
+
+    /// True when `chars` is printable text suitable for the Tray filter (rejects control and PUA function keys).
+    static func isPrintableFilterInput(_ chars: String) -> Bool {
+        !chars.isEmpty && chars.unicodeScalars.allSatisfy {
+            !CharacterSet.controlCharacters.contains($0) && !(0xF700...0xF8FF).contains($0.value)
+        }
     }
 }
 
@@ -56,14 +65,17 @@ final class TrayState: ObservableObject {
 enum DockBadges {
     /// Reads each Dock item's badge through Accessibility. Empty if the Dock isn't reachable.
     static func read() -> [String: String] {
-        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return [:] }
+        guard AXIsProcessTrusted(),
+              let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return [:] }
         func children(_ element: AXUIElement) -> [AXUIElement] {
             var value: CFTypeRef?
             AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &value)
             return value as? [AXUIElement] ?? []
         }
+        let axDock = AXUIElementCreateApplication(dock.processIdentifier)
+        AXUIElementSetMessagingTimeout(axDock, 0.25)
         var result: [String: String] = [:]
-        for list in children(AXUIElementCreateApplication(dock.processIdentifier)) {
+        for list in children(axDock) {
             for item in children(list) {
                 var label: CFTypeRef?
                 var url: CFTypeRef?
@@ -94,6 +106,8 @@ final class TrayController: NSObject, NSWindowDelegate {
     /// A click on the toggle resigns the panel before the click lands; without this it would reopen at once.
     private var closedAt: Date = .distantPast
     var onOpenSettings: (() -> Void)?
+
+    var isOpen: Bool { panel != nil }
 
     init(model: ItemsModel) {
         self.model = model
@@ -126,7 +140,8 @@ final class TrayController: NSObject, NSWindowDelegate {
 
         let view = TrayView(model: model, prefs: .shared, state: state,
                             open: { [weak self] in self?.openItem($0) },
-                            openSettings: { [weak self] in self?.openSettings() })
+                            openSettings: { [weak self] in self?.openSettings() },
+                            closeTray: { [weak self] in self?.close() })
         let panel = TrayPanel(contentRect: .zero, styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
         let host = NSHostingView(rootView: view)
         host.sizingOptions = [.preferredContentSize]
@@ -185,6 +200,11 @@ final class TrayController: NSObject, NSWindowDelegate {
         let prefs = Preferences.shared
         let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query,
                                    openCounts: prefs.openCounts, pinned: prefs.pinned)
+        if tiles.isEmpty {
+            state.selection = 0
+        } else {
+            state.selection = min(max(state.selection, 0), tiles.count - 1)
+        }
         let command = event.modifierFlags.contains(.command)
         switch event.keyCode {
         case 53: // Esc clears a filter first, then closes.
@@ -201,8 +221,7 @@ final class TrayController: NSObject, NSWindowDelegate {
             state.selection = TrayGrid.move(state.selection, keyCode: event.keyCode, count: tiles.count)
         default:
             guard event.modifierFlags.isDisjoint(with: [.command, .control]),
-                  let chars = event.characters, !chars.isEmpty,
-                  chars.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else { return false }
+                  let chars = event.characters, TrayGrid.isPrintableFilterInput(chars) else { return false }
             // Digits open a tile only before typing starts, so names with digits stay searchable.
             if state.query.isEmpty, let digit = Int(chars), (1...9).contains(digit) {
                 if tiles.indices.contains(digit - 1) { openItem(tiles[digit - 1]) }
@@ -232,17 +251,22 @@ private struct TrayView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let open: (MenuBarItem) -> Void
     let openSettings: () -> Void
+    let closeTray: () -> Void
 
     var body: some View {
         let tiles = TrayGrid.tiles(from: model.trayCandidates, query: state.query,
                                    openCounts: prefs.openCounts, pinned: prefs.pinned)
+        let effectiveSelection = tiles.isEmpty ? 0 : min(max(state.selection, 0), tiles.count - 1)
         VStack(alignment: .leading, spacing: 10) {
             filterRow
 
             if !model.isTrusted {
                 placeholder("lock.shield", "Accessibility access needed",
                             "MenuTuck reads and clicks menu bar icons through Accessibility.") {
-                    Button("Grant Access…") { model.requestTrust() }.controlSize(.small)
+                    Button("Grant Access…") {
+                        closeTray()
+                        model.requestTrust()
+                    }.controlSize(.small)
                 }
             } else if tiles.isEmpty, state.query.isEmpty {
                 placeholder("tray", "Nothing tucked away", "⌘-drag an icon left of |› to tuck it here.") { EmptyView() }
@@ -251,7 +275,7 @@ private struct TrayView: View {
             } else {
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(76), spacing: 4), count: TrayGrid.columns(for: tiles.count)), spacing: 4) {
                     ForEach(Array(tiles.enumerated()), id: \.element.id) { index, item in
-                        tile(item, index: index)
+                        tile(item, index: index, isSelected: index == effectiveSelection)
                     }
                 }
             }
@@ -309,7 +333,7 @@ private struct TrayView: View {
         item.bundleID.flatMap { state.badges[$0] }
     }
 
-    private func tile(_ item: MenuBarItem, index: Int) -> some View {
+    private func tile(_ item: MenuBarItem, index: Int, isSelected: Bool) -> some View {
         let subtitle = item.detail == item.appName ? "" : item.detail
         return VStack(spacing: 3) {
             Image(nsImage: item.appIcon)
@@ -344,9 +368,9 @@ private struct TrayView: View {
         }
         .padding(.vertical, 6)
         .frame(width: 76)
-        .background(index == state.selection ? Color.accentColor.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 8))
+        .background(isSelected ? Color.accentColor.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 8))
         .overlay {
-            if index == state.selection {
+            if isSelected {
                 RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 1.5)
             }
         }
@@ -361,7 +385,7 @@ private struct TrayView: View {
         .overlay(alignment: .topTrailing) {
             HStack(spacing: 2) {
                 if prefs.pinned.contains(item.storageKey) { Image(systemName: "pin.fill") }
-                if item.section == .alwaysHidden { Image(systemName: MenuSection.alwaysHidden.symbol) }
+                if prefs.alwaysHiddenEnabled && item.section == .alwaysHidden { Image(systemName: MenuSection.alwaysHidden.symbol) }
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
@@ -380,17 +404,21 @@ private struct TrayView: View {
 
     @ViewBuilder
     private func menu(for item: MenuBarItem) -> some View {
+        let effectiveSection = (item.section == .alwaysHidden && !prefs.alwaysHiddenEnabled) ? .hidden : item.section
         Button(item.isRunning ? "Open Menu" : "Open \(item.appName)") { open(item) }
         Button(prefs.pinned.contains(item.storageKey) ? "Unpin" : "Pin to Top") {
             prefs.pinned.formSymmetricDifference([item.storageKey])
         }
         Divider()
-        ForEach(MenuSection.allCases.filter { $0 != item.section && ($0 != .alwaysHidden || prefs.alwaysHiddenEnabled) }) { section in
+        ForEach(MenuSection.allCases.filter { $0 != effectiveSection && ($0 != .alwaysHidden || prefs.alwaysHiddenEnabled) }) { section in
             Button("Move to \(section.title)") { model.move(item, to: section) }
         }
         Divider()
         if let url = item.appURL {
-            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            Button("Show in Finder") {
+                closeTray()
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
         }
         if item.isRunning {
             Button("Quit \(item.appName)") { NSRunningApplication(processIdentifier: item.pid)?.terminate() }

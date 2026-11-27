@@ -30,20 +30,34 @@ struct OnboardingPickView: View {
 
     var body: some View {
         let items = model.items.filter { $0.section != .alwaysHidden && $0.pid != 0 }
+        let usesTray = Preferences.shared.revealStyle == .tray
         OnboardingCard(step: 2, symbol: "checklist", title: "Pick icons to tuck away") {
-            Text("Ticked icons leave the menu bar and wait in the Tray. You can change this any time.")
-            List(items) { item in
-                Toggle(isOn: Binding(
-                    get: { item.section == .hidden },
-                    set: { model.move(item, to: $0 ? .hidden : .visible) }
-                )) {
-                    HStack(spacing: 8) {
-                        Image(nsImage: item.appIcon).resizable().frame(width: 18, height: 18)
-                        Text(item.appName)
+            Text(usesTray
+                 ? "Ticked icons leave the menu bar and wait in the Tray. You can change this any time."
+                 : "Ticked icons hide behind |‹ in the menu bar. You can change this any time.")
+            if items.isEmpty {
+                VStack(spacing: 8) {
+                    if model.isBusy {
+                        ProgressView("Scanning menu bar…")
+                    } else {
+                        Text("No third-party menu bar icons found yet.")
                     }
                 }
+                .frame(maxWidth: .infinity, minHeight: 180)
+            } else {
+                List(items) { item in
+                    Toggle(isOn: Binding(
+                        get: { item.section == .hidden },
+                        set: { model.move(item, to: $0 ? .hidden : .visible) }
+                    )) {
+                        HStack(spacing: 8) {
+                            Image(nsImage: item.appIcon).resizable().frame(width: 18, height: 18)
+                            Text(item.appName)
+                        }
+                    }
+                }
+                .frame(minHeight: 180)
             }
-            .frame(minHeight: 180)
             HStack {
                 Spacer()
                 Button("Continue", action: onNext).buttonStyle(.borderedProminent)
@@ -59,25 +73,31 @@ struct OnboardingDoneView: View {
 
     var body: some View {
         let tucked = model.items(in: .hidden).prefix(12)
+        let usesTray = Preferences.shared.revealStyle == .tray
+        let shortcutText = Preferences.shared.toggleShortcut.map { " or press \($0.label)" } ?? ""
         OnboardingCard(step: 3, symbol: "checkmark.circle.fill", title: "That's it") {
-            Text("Click |‹ in the menu bar\(Preferences.shared.toggleShortcut.map { " or press \($0.label)" } ?? "") to open the Tray. Type to filter, press 1–9 to open an icon.")
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(44)), count: 6), spacing: 8) {
-                ForEach(Array(tucked.enumerated()), id: \.element.id) { index, item in
-                    Image(nsImage: item.appIcon)
-                        .resizable()
-                        .frame(width: 28, height: 28)
-                        .frame(width: 44, height: 44)
-                        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(alignment: .topLeading) {
-                            if index < 9 {
-                                Text("\(index + 1)").font(.caption2.monospacedDigit()).padding(3)
+            Text(usesTray
+                 ? "Click |‹ in the menu bar\(shortcutText) to open the Tray. Type to filter, press 1–9 to open an icon."
+                 : "Click |‹ in the menu bar\(shortcutText) to show or hide tucked icons.")
+            if !tucked.isEmpty {
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(44)), count: 6), spacing: 8) {
+                    ForEach(Array(tucked.enumerated()), id: \.element.id) { index, item in
+                        Image(nsImage: item.appIcon)
+                            .resizable()
+                            .frame(width: 28, height: 28)
+                            .frame(width: 44, height: 44)
+                            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                            .overlay(alignment: .topLeading) {
+                                if index < 9 {
+                                    Text("\(index + 1)").font(.caption2.monospacedDigit()).padding(3)
+                                }
                             }
-                        }
-                        .accessibilityLabel(item.appName)
+                            .accessibilityLabel(item.appName)
+                    }
                 }
+                .padding(10)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
-            .padding(10)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
             HStack {
                 Spacer()
                 Button("Done", action: onDone).buttonStyle(.borderedProminent)

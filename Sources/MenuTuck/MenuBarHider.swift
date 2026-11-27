@@ -42,9 +42,10 @@ final class MenuBarHider {
         var staticCode: SecStaticCode?
         var info: CFDictionary?
         guard SecCodeCopySelf([], &code) == errSecSuccess, let code,
-              SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode,
-              SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &info) == errSecSuccess,
-              let dict = info as? [String: Any] else { return false }
+              SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode else { return false }
+        let status = SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &info)
+        if status == errSecCSUnsigned { return true }
+        guard status == errSecSuccess, let dict = info as? [String: Any] else { return false }
         return (dict[kSecCodeInfoCertificates as String] as? [Any])?.isEmpty ?? true
     }()
 

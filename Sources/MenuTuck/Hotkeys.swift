@@ -8,14 +8,40 @@ enum Hotkeys {
     private struct Entry {
         let keyCode: UInt32
         let modifiers: UInt32
-        let ref: EventHotKeyRef
+        var ref: EventHotKeyRef?
         let action: () -> Void
         let release: (() -> Void)?
     }
 
     private static var entries: [UInt32: Entry] = [:]
     private static var handlerInstalled = false
+    private static var isPaused = false
     private static let signature: OSType = 0x4D54_636B // "MTck"
+
+    /// Temporarily unregisters active hot keys while recording a new shortcut so existing combos can be re-recorded.
+    static func setPaused(_ paused: Bool) {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        if paused {
+            for id in entries.keys {
+                if let ref = entries[id]?.ref {
+                    UnregisterEventHotKey(ref)
+                    entries[id]?.ref = nil
+                }
+            }
+        } else {
+            installHandler()
+            for (id, entry) in entries {
+                var ref: EventHotKeyRef?
+                let status = RegisterEventHotKey(
+                    entry.keyCode, entry.modifiers, EventHotKeyID(signature: signature, id: id), GetEventDispatcherTarget(), 0, &ref
+                )
+                if status == noErr, let ref {
+                    entries[id]?.ref = ref
+                }
+            }
+        }
+    }
 
     /// Binds `id` to a key combo (Carbon modifier mask), replacing its previous combo. `keyCode: nil` unbinds it.
     /// Returns false when the system refuses the combo, e.g. another app already holds it.
@@ -24,14 +50,20 @@ enum Hotkeys {
     static func set(_ id: UInt32, keyCode: UInt32?, modifiers: UInt32 = 0,
                     action: @escaping () -> Void = {}, release: (() -> Void)? = nil) -> Bool {
         if let old = entries[id] {
-            if old.keyCode == keyCode, old.modifiers == modifiers {
+            if old.keyCode == keyCode, old.modifiers == modifiers, (isPaused || old.ref != nil) {
                 entries[id] = Entry(keyCode: old.keyCode, modifiers: old.modifiers, ref: old.ref, action: action, release: release)
                 return true
             }
-            UnregisterEventHotKey(old.ref)
+            if let ref = old.ref {
+                UnregisterEventHotKey(ref)
+            }
             entries[id] = nil
         }
         guard let keyCode else { return true }
+        if isPaused {
+            entries[id] = Entry(keyCode: keyCode, modifiers: modifiers, ref: nil, action: action, release: release)
+            return true
+        }
         installHandler()
         var ref: EventHotKeyRef?
         let status = RegisterEventHotKey(
@@ -92,9 +124,10 @@ struct Shortcut: Equatable {
 
 extension Shortcut {
     init?(plist: [String: Any]) {
-        guard let keyCode = plist["keyCode"] as? Int, let modifiers = plist["modifiers"] as? Int,
+        guard let rawKeyCode = plist["keyCode"] as? Int, let rawModifiers = plist["modifiers"] as? Int,
+              let keyCode = UInt32(exactly: rawKeyCode), let modifiers = UInt32(exactly: rawModifiers),
               let key = plist["key"] as? String, !key.isEmpty else { return nil }
-        self.init(keyCode: UInt32(keyCode), modifiers: UInt32(modifiers), key: key)
+        self.init(keyCode: keyCode, modifiers: modifiers, key: key)
     }
 
     /// Nil unless ⌃, ⌥ or ⌘ is held: a bare or Shift-only key would swallow ordinary typing system-wide.
@@ -107,8 +140,9 @@ extension Shortcut {
         if flags.contains(.command) { modifiers |= cmdKey }
         guard modifiers & (controlKey | optionKey | cmdKey) != 0 else { return nil }
         let typed = event.charactersIgnoringModifiers?.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        // Keys with no printable name (Home, Page Up, …) report private-use characters; refuse them.
+        // Keys with no printable name (Home, Page Up, …) or control chars report non-printable scalars; refuse them.
         guard let key = Self.namedKeys[Int(event.keyCode)] ?? typed, let first = key.unicodeScalars.first,
+              !CharacterSet.controlCharacters.contains(first),
               !(0xF700...0xF8FF).contains(first.value) else { return nil }
         self.init(keyCode: UInt32(event.keyCode), modifiers: UInt32(modifiers), key: key)
     }

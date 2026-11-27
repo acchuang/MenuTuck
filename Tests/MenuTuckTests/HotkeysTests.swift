@@ -19,5 +19,15 @@ final class HotkeysTests: XCTestCase {
         XCTAssertEqual(all.label, "⌃⌥⇧⌘F5")
         XCTAssertEqual(Shortcut(plist: all.plist), all)
         XCTAssertNil(Shortcut(plist: ["keyCode": 1]))
+        XCTAssertNil(Shortcut(plist: ["keyCode": -1, "modifiers": 0, "key": "M"]))
+        XCTAssertNil(Shortcut(plist: ["keyCode": 46, "modifiers": -5, "key": "M"]))
+    }
+
+    func testPauseAndResumeHotkeys() {
+        let mods = UInt32(controlKey | optionKey | shiftKey | cmdKey)
+        XCTAssertTrue(Hotkeys.set(97, keyCode: UInt32(kVK_F17), modifiers: mods))
+        Hotkeys.setPaused(true)
+        Hotkeys.setPaused(false)
+        XCTAssertTrue(Hotkeys.set(97, keyCode: nil))
     }
 }

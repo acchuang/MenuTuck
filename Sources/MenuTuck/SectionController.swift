@@ -39,6 +39,7 @@ final class SectionController: NSObject, ObservableObject {
     /// The current reveal came from hovering and nothing was clicked since, so it ends when the pointer leaves the bar.
     private var revealedByHover = false
     private var cancellables = Set<AnyCancellable>()
+    private var workspaceObservers: [NSObjectProtocol] = []
     private let prefs = Preferences.shared
     private let hider = MenuBarHider.shared
 
@@ -88,14 +89,18 @@ final class SectionController: NSObject, ObservableObject {
             .store(in: &cancellables)
 
         let wsCenter = NSWorkspace.shared.notificationCenter
-        wsCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-            // The allowlist is a snapshot of running apps; without this a new app stays blank until the next apply.
-            self?.apply()
-            self?.onLayoutChanged?()
-        }
-        wsCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.onLayoutChanged?()
-        }
+        workspaceObservers.append(
+            wsCenter.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+                // The allowlist is a snapshot of running apps; without this a new app stays blank until the next apply.
+                self?.apply()
+                self?.onLayoutChanged?()
+            }
+        )
+        workspaceObservers.append(
+            wsCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.onLayoutChanged?()
+            }
+        )
 
         // Start with the dividers visible so MenuBarAgent materializes both scenes before the initial scan.
         alwaysHiddenDivider.button?.image = Self.alwaysHiddenDividerImage
@@ -104,6 +109,15 @@ final class SectionController: NSObject, ObservableObject {
 
     deinit {
         dividerPollTimer?.invalidate()
+        rehideTimer?.invalidate()
+        hoverTimer?.invalidate()
+        for monitor in [globalFlagsMonitor, localFlagsMonitor, outsideClickMonitor, hoverMonitor].compactMap({ $0 }) {
+            NSEvent.removeMonitor(monitor)
+        }
+        let wsCenter = NSWorkspace.shared.notificationCenter
+        for observer in workspaceObservers {
+            wsCenter.removeObserver(observer)
+        }
     }
 
     // MARK: - State
@@ -250,7 +264,8 @@ final class SectionController: NSObject, ObservableObject {
         AXUIElementSetMessagingTimeout(axApp, 0.2)
         var barRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(axApp, kAXExtrasMenuBarAttribute as CFString, &barRef) == .success,
-              let bar = barRef else { return result }
+              let bar = barRef,
+              CFGetTypeID(bar) == AXUIElementGetTypeID() else { return result }
         var kidsRef: CFTypeRef?
         AXUIElementCopyAttributeValue(bar as! AXUIElement, kAXChildrenAttribute as CFString, &kidsRef)
         for child in (kidsRef as? [AXUIElement]) ?? [] {
@@ -265,8 +280,12 @@ final class SectionController: NSObject, ObservableObject {
             guard let key = (idRef as? String) ?? (descRef as? String) else { continue }
             var pt = CGPoint.zero
             var sz = CGSize.zero
-            if let posRef { AXValueGetValue(posRef as! AXValue, .cgPoint, &pt) }
-            if let sizeRef { AXValueGetValue(sizeRef as! AXValue, .cgSize, &sz) }
+            if let posRef, CFGetTypeID(posRef) == AXValueGetTypeID() {
+                AXValueGetValue(posRef as! AXValue, .cgPoint, &pt)
+            }
+            if let sizeRef, CFGetTypeID(sizeRef) == AXValueGetTypeID() {
+                AXValueGetValue(sizeRef as! AXValue, .cgSize, &sz)
+            }
             let frame = CGRect(origin: pt, size: sz)
             if frame.isOnMenuBar && sz.width > 0 {
                 result[key] = frame
@@ -313,7 +332,7 @@ final class SectionController: NSObject, ObservableObject {
         }
     }
 
-    private func syncHotkeys() {
+    func syncHotkeys() {
         var refused = Set<UInt32>()
         func bind(_ id: UInt32, _ shortcut: Shortcut?, release: (() -> Void)? = nil, _ action: @escaping () -> Void) {
             if !Hotkeys.set(id, keyCode: shortcut?.keyCode, modifiers: shortcut?.modifiers ?? 0, action: action, release: release) {
@@ -326,22 +345,38 @@ final class SectionController: NSObject, ObservableObject {
         if refused != refusedHotkeys { refusedHotkeys = refused }
     }
 
+    private enum PeekTarget {
+        case tray
+        case bar
+    }
+
     private var peekStart: Date?
+    private var peekTarget: PeekTarget?
 
     private func peekPressed() {
         guard peekStart == nil else { return } // key repeat
+        if usesTray {
+            peekTarget = (tray?.isOpen == true) ? nil : .tray
+        } else {
+            peekTarget = (state == .collapsed) ? .bar : nil
+        }
         peekStart = Date()
         reveal()
     }
 
     private func peekReleased() {
         guard let start = peekStart else { return }
+        let target = peekTarget
         peekStart = nil
-        guard Date().timeIntervalSince(start) > Self.peekHold else { return }
-        if prefs.revealStyle == .tray, tray != nil, state == .collapsed {
+        peekTarget = nil
+        guard Date().timeIntervalSince(start) > Self.peekHold, let target else { return }
+        switch target {
+        case .tray:
             tray?.close()
-        } else {
-            set(.collapsed)
+        case .bar:
+            if state != .collapsed {
+                set(.collapsed)
+            }
         }
     }
 
@@ -355,15 +390,17 @@ final class SectionController: NSObject, ObservableObject {
     /// The pointer is hit-tested against the toggle's AX frame: on macOS 27 the status item's own
     /// window frame is useless (see `layout()`), so a tracking area on the button cannot be trusted.
     private func syncHoverMonitor() {
-        if prefs.hoverReveal, hoverMonitor == nil {
+        let wantHover = prefs.hoverReveal && prefs.revealStyle == .menuBar
+        if wantHover, hoverMonitor == nil {
             hoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
                 self?.handleMouseMoved()
             }
-        } else if !prefs.hoverReveal, let monitor = hoverMonitor {
+        } else if !wantHover, let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
             hoverMonitor = nil
             hoverTimer?.invalidate()
             hoverTimer = nil
+            revealedByHover = false
         }
     }
 
@@ -373,11 +410,11 @@ final class SectionController: NSObject, ObservableObject {
             if revealedByHover, !Self.pointerIsInMenuBar() { set(.collapsed) }
             return
         }
+        // Cheap reject first: this runs for every mouse move on screen.
+        guard Self.pointerIsInMenuBar() else { return cancelHover() }
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         let mouse = NSEvent.mouseLocation
         let point = CGPoint(x: mouse.x, y: primaryHeight - mouse.y)
-        // Cheap reject first: this runs for every mouse move on screen.
-        guard point.y < 60 else { return cancelHover() }
 
         if Date().timeIntervalSince(hoverFrameAt) > 1 {
             hoverFrame = Self.ownAXFrames()[Self.toggleID]

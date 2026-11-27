@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import ServiceManagement
 import SwiftUI
 
@@ -100,9 +101,11 @@ private struct ItemsTab: View {
             }
 
             HStack(spacing: 8) {
-                Text("⌘-click to select several. Drag, right-click or ⌥←/⌥→ to move. ⌘-dragging in the menu bar works too.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if model.isTrusted && prefs.didOnboard {
+                    Text("⌘-click to select several. Drag, right-click or ⌥←/⌥→ to move. ⌘-dragging in the menu bar works too.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 if model.isBusy {
                     ProgressView().controlSize(.small)
@@ -123,7 +126,7 @@ private struct ItemsTab: View {
         .onReceive(trustTimer) { _ in
             guard !model.isTrusted else { return }
             model.checkTrust()
-            if model.isTrusted { model.refresh(syncFromDividers: true) }
+            if model.isTrusted { model.refresh(syncFromDividers: false) }
         }
         .onChange(of: model.searchQuery) { selected = [] }
         .onAppear(perform: startKeyMonitor)
@@ -139,10 +142,11 @@ private struct ItemsTab: View {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let step = ItemsModel.moveStep(keyCode: event.keyCode, flags: event.modifierFlags)
             // Local monitors see every window of the app; leave the Tray and other windows alone.
-            guard step != 0, !selected.isEmpty,
+            guard prefs.didOnboard, model.isTrusted, step != 0, !selected.isEmpty,
                   event.window?.contentViewController is NSHostingController<SettingsView>,
                   !(event.window?.firstResponder is NSText) else { return event }
             let picked = model.items.filter { selected.contains($0.storageKey) }
+            guard !picked.isEmpty else { return event }
             let byTarget = Dictionary(grouping: picked) { ItemsModel.neighbor(of: $0.section, step: step, in: columns) }
             for (target, group) in byTarget {
                 if let target { model.move(group, to: target) }
@@ -325,6 +329,7 @@ private struct GeneralTab: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
     @State private var layoutStatus: String?
+    @State private var recordingHotkeyID: UInt32?
 
     var body: some View {
         Form {
@@ -375,12 +380,16 @@ private struct GeneralTab: View {
 
             Section {
                 ShortcutRecorder(
+                    id: SectionController.toggleHotkeyID,
                     title: "Toggle hidden icons", shortcut: $prefs.toggleShortcut, taken: prefs.showAllShortcut,
-                    refused: sections.refusedHotkeys.contains(SectionController.toggleHotkeyID)
+                    refused: sections.refusedHotkeys.contains(SectionController.toggleHotkeyID),
+                    recordingID: $recordingHotkeyID
                 )
                 ShortcutRecorder(
+                    id: SectionController.showAllHotkeyID,
                     title: "Show all icons", shortcut: $prefs.showAllShortcut, taken: prefs.toggleShortcut,
-                    refused: sections.refusedHotkeys.contains(SectionController.showAllHotkeyID)
+                    refused: sections.refusedHotkeys.contains(SectionController.showAllHotkeyID),
+                    recordingID: $recordingHotkeyID
                 )
                 Toggle("Launch at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
                 if let loginError {
@@ -411,9 +420,21 @@ private struct GeneralTab: View {
             }
         }
         .formStyle(.grouped)
+        .onChange(of: recordingHotkeyID) { _, newValue in
+            Hotkeys.setPaused(newValue != nil)
+            if newValue == nil {
+                sections.syncHotkeys()
+            }
+        }
+        .onDisappear {
+            recordingHotkeyID = nil
+            Hotkeys.setPaused(false)
+            sections.syncHotkeys()
+        }
     }
 
     private func exportLayout() {
+        recordingHotkeyID = nil
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "MenuTuck Layout.json"
@@ -427,6 +448,7 @@ private struct GeneralTab: View {
     }
 
     private func importLayout() {
+        recordingHotkeyID = nil
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -470,12 +492,16 @@ private struct GeneralTab: View {
 
 /// A row that records a global shortcut: click, press the combo. Esc cancels, the × button clears.
 private struct ShortcutRecorder: View {
+    let id: UInt32
     let title: String
     @Binding var shortcut: Shortcut?
     /// The other row's combo, which this one may not reuse.
     let taken: Shortcut?
     let refused: Bool
+    @Binding var recordingID: UInt32?
     @State private var monitor: Any?
+
+    private var isRecording: Bool { recordingID == id }
 
     var body: some View {
         LabeledContent(title) {
@@ -485,30 +511,38 @@ private struct ShortcutRecorder: View {
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
-                Button(monitor != nil ? "Press shortcut…" : shortcut?.label ?? "Record Shortcut") {
-                    monitor == nil ? start() : stop()
+                Button(isRecording ? "Press shortcut…" : shortcut?.label ?? "Record Shortcut") {
+                    recordingID = isRecording ? nil : id
                 }
                 .frame(minWidth: 120)
                 .accessibilityLabel("\(title) shortcut")
-                .accessibilityValue(monitor != nil ? "Recording" : shortcut?.label ?? "None")
+                .accessibilityValue(isRecording ? "Recording" : shortcut?.label ?? "None")
                 if shortcut != nil {
-                    Button { shortcut = nil } label: { Image(systemName: "xmark.circle.fill") }
+                    Button {
+                        shortcut = nil
+                        if isRecording { recordingID = nil }
+                    } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
                         .accessibilityLabel("Clear \(title) shortcut")
                 }
             }
         }
+        .onChange(of: isRecording) { _, recording in
+            recording ? start() : stop()
+        }
         .onDisappear(perform: stop)
     }
 
     private func start() {
+        guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.window?.contentViewController is NSHostingController<SettingsView> else { return event }
             if event.keyCode == 53 { // Esc
-                stop()
+                recordingID = nil
             } else if let recorded = Shortcut(event: event), recorded != taken {
                 shortcut = recorded
-                stop()
+                recordingID = nil
             } else {
                 NSSound.beep()
             }

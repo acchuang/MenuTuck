@@ -10,7 +10,8 @@ cd "$(dirname "$0")/.."
 export SIGN_IDENTITY="${SIGN_IDENTITY:-BEAA9D39B2AF571B71D687B8F214FECE833AD432}"
 SKIP_INSTALL=1 ./scripts/build-app.sh release
 
-if ! codesign -d -r- build/MenuTuck.app 2>&1 | grep -q "certificate leaf"; then
+REQ="$(codesign -d -r- build/MenuTuck.app 2>&1 || true)"
+if ! grep -q "certificate leaf" <<<"$REQ"; then
     echo "error: build is ad-hoc signed (requirement is a cdhash); releases must use the MenuTuck Release cert" >&2
     exit 1
 fi

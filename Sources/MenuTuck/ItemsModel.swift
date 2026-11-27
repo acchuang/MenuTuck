@@ -14,6 +14,8 @@ final class ItemsModel: ObservableObject {
     private let prefs = Preferences.shared
     private var cachedByID: [String: MenuBarItem] = [:]
     private var syncFeedbackWorkItem: DispatchWorkItem?
+    private var activeScans = 0
+    private var fullScanGeneration: UInt64 = 0
 
     init(controller: SectionController) {
         self.controller = controller
@@ -52,11 +54,23 @@ final class ItemsModel: ObservableObject {
         // ponytail: checks the first notched screen only; per-screen check if multi-notch setups show up.
         guard let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }),
               let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea else { return [] }
-        return Self.underNotch(items, notch: left.maxX...right.minX)
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
+        let barTop = primaryHeight - screen.frame.maxY
+        let barHeight = max(36, screen.frame.maxY - screen.visibleFrame.maxY)
+        return Self.underNotch(items, notch: left.maxX...right.minX, barY: barTop...(barTop + barHeight))
     }
 
-    static func underNotch(_ items: [MenuBarItem], notch: ClosedRange<CGFloat>) -> [MenuBarItem] {
-        items.filter { $0.section == .visible && $0.isFromAX && $0.frame.width > 0 && notch.contains($0.frame.midX) }
+    static func underNotch(
+        _ items: [MenuBarItem],
+        notch: ClosedRange<CGFloat>,
+        barY: ClosedRange<CGFloat>? = nil
+    ) -> [MenuBarItem] {
+        items.filter { item in
+            guard item.section == .visible, item.isFromAX, item.frame.width > 0,
+                  notch.contains(item.frame.midX) else { return false }
+            if let barY { return barY.contains(item.frame.midY) }
+            return item.frame.isOnMenuBar
+        }
     }
 
     // MARK: - Permission
@@ -84,10 +98,15 @@ final class ItemsModel: ObservableObject {
         let knownPIDs = Set(cachedByID.values.map(\.pid))
         let found = MenuBarScanner.scan(onlyPIDs: knownPIDs.isEmpty ? nil : knownPIDs)
         let ahEnabled = prefs.alwaysHiddenEnabled
+        let currentlyHidden = MenuBarHider.shared.currentlyHiddenBundleIDs
 
-        for scanned in found where scanned.frame.isOnMenuBar {
+        for scanned in found where !currentlyHidden.contains(scanned.storageKey) && scanned.frame.isOnMenuBar {
             let key = scanned.storageKey
-            let detected = Self.sectionFromFrame(scanned.frame, layout: layout, alwaysHiddenEnabled: ahEnabled)
+            let wasAlwaysHidden = prefs.sectionOverride(for: key) == .alwaysHidden
+                || prefs.lastPhysicalSection(for: key) == .alwaysHidden
+            let detected = Self.sectionFromFrame(
+                scanned.frame, layout: layout, alwaysHiddenEnabled: ahEnabled, preserveAlwaysHidden: wasAlwaysHidden
+            )
             if let section = reassign(key, detected: detected) {
                 for idx in items.indices where items[idx].storageKey == key {
                     items[idx].section = section
@@ -106,12 +125,24 @@ final class ItemsModel: ObservableObject {
         let layout = controller?.layout()
         let currentlyHidden = MenuBarHider.shared.currentlyHiddenBundleIDs
         let ahEnabled = prefs.alwaysHiddenEnabled
+        activeScans += 1
         isBusy = true
+        if onlyPIDs == nil {
+            fullScanGeneration += 1
+        }
+        let scanGen = fullScanGeneration
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let found = MenuBarScanner.scan(onlyPIDs: onlyPIDs)
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                defer {
+                    self.activeScans = max(0, self.activeScans - 1)
+                    self.isBusy = self.activeScans > 0
+                }
+                if onlyPIDs == nil, scanGen != self.fullScanGeneration {
+                    return
+                }
                 let runningPIDs = Set(NSWorkspace.shared.runningApplications.map(\.processIdentifier))
                 self.cachedByID = self.cachedByID.filter { runningPIDs.contains($0.value.pid) }
                 for item in found {
@@ -129,7 +160,11 @@ final class ItemsModel: ObservableObject {
                     let hasLiveFrame = item.isFromAX && !isHiddenByAssertion && item.frame.isOnMenuBar
 
                     if hasLiveFrame, let layout, layout.toggle.width > 0 {
-                        let detected = Self.sectionFromFrame(item.frame, layout: layout, alwaysHiddenEnabled: ahEnabled)
+                        let wasAlwaysHidden = self.prefs.sectionOverride(for: key) == .alwaysHidden
+                            || self.prefs.lastPhysicalSection(for: key) == .alwaysHidden
+                        let detected = Self.sectionFromFrame(
+                            item.frame, layout: layout, alwaysHiddenEnabled: ahEnabled, preserveAlwaysHidden: wasAlwaysHidden
+                        )
                         item.section = self.reassign(key, detected: detected, force: syncFromDividers)
                             ?? self.prefs.sectionOverride(for: key) ?? detected
                     } else if let saved = self.prefs.sectionOverride(for: key) {
@@ -142,7 +177,6 @@ final class ItemsModel: ObservableObject {
                     }
                     return item
                 }
-                self.isBusy = false
                 if syncFromDividers {
                     self.syncFeedbackWorkItem?.cancel()
                     self.didJustSync = true
@@ -187,18 +221,18 @@ final class ItemsModel: ObservableObject {
         return lastPhysical != detected || saved == nil ? detected : nil
     }
 
-    private static func sectionFromFrame(
+    static func sectionFromFrame(
         _ frame: CGRect,
         layout: DividerLayout,
-        alwaysHiddenEnabled: Bool
+        alwaysHiddenEnabled: Bool,
+        preserveAlwaysHidden: Bool = false
     ) -> MenuSection {
         if frame.midX >= layout.toggle.midX { return .visible }
-        if alwaysHiddenEnabled,
-           let ah = layout.alwaysHidden,
-           ah.width > 0,
-           ah.midX < layout.toggle.minX,
-           frame.midX < ah.midX {
-            return .alwaysHidden
+        if alwaysHiddenEnabled {
+            if let ah = layout.alwaysHidden, ah.width > 0, ah.midX < layout.toggle.minX {
+                return frame.midX < ah.midX ? .alwaysHidden : .hidden
+            }
+            if preserveAlwaysHidden { return .alwaysHidden }
         }
         return .hidden
     }
@@ -215,16 +249,16 @@ final class ItemsModel: ObservableObject {
             return
         }
         lastError = nil
-        if item.section == .alwaysHidden {
+        if item.section == .alwaysHidden && prefs.alwaysHiddenEnabled {
             controller?.set(.showAll)
-        } else if item.section == .hidden, controller?.state == .collapsed {
+        } else if item.section != .visible, controller?.state == .collapsed {
             controller?.set(.expanded)
         }
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.18) {
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.18) { [weak self] in
             let ok = MenuBarScanner.press(item)
             if !ok {
                 DispatchQueue.main.async {
-                    self.lastError = "Could not open \(item.appName) via Accessibility."
+                    self?.lastError = "Could not open \(item.appName) via Accessibility."
                 }
             }
         }
@@ -248,7 +282,7 @@ final class ItemsModel: ObservableObject {
     /// A freshly launched app takes a moment to put up its status item. Scans only that app.
     private func openWhenListed(_ key: String, pid: pid_t, tries: Int) {
         if let live = items.first(where: { $0.storageKey == key && $0.pid == pid }) { return trigger(live) }
-        guard tries > 0 else { return }
+        guard tries > 0, NSRunningApplication(processIdentifier: pid) != nil else { return }
         refresh(onlyPIDs: [pid])
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             self?.openWhenListed(key, pid: pid, tries: tries - 1)
@@ -266,7 +300,7 @@ final class ItemsModel: ObservableObject {
         let keys = Set(moving.filter { $0.section != target }.map(\.storageKey))
         guard !keys.isEmpty else { return }
         lastError = nil
-        for key in keys { prefs.setSectionOverride(target, for: key) }
+        prefs.setSectionOverrides(target, for: keys)
 
         for idx in items.indices where keys.contains(items[idx].storageKey) {
             items[idx].section = target

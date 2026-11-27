@@ -36,7 +36,7 @@ struct MenuBarItem: Identifiable, Hashable {
     var isRunning: Bool { pid != 0 }
 
     var appURL: URL? {
-        NSRunningApplication(processIdentifier: pid)?.bundleURL
+        (pid > 0 ? NSRunningApplication(processIdentifier: pid)?.bundleURL : nil)
             ?? bundleID.flatMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
     }
 
@@ -45,7 +45,7 @@ struct MenuBarItem: Identifiable, Hashable {
 
     var appIcon: NSImage {
         if let cached = Self.iconCache[storageKey] { return cached }
-        guard let icon = NSRunningApplication(processIdentifier: pid)?.icon
+        guard let icon = (pid > 0 ? NSRunningApplication(processIdentifier: pid)?.icon : nil)
                 ?? appURL.map({ NSWorkspace.shared.icon(forFile: $0.path) }) else {
             return NSImage(systemSymbolName: "app", accessibilityDescription: nil) ?? NSImage()
         }
@@ -100,13 +100,13 @@ enum MenuBarScanner {
         var merged: [MenuBarItem] = []
         var seenBundles = Set<String>()
 
-        for app in apps {
-            let pid = app.processIdentifier
+        for (index, app) in apps.enumerated() {
             let bid = app.bundleIdentifier
             let exe = app.executableURL?.lastPathComponent ?? ""
             if let bid, seenBundles.contains(bid) { continue }
 
-            guard let axList = results.first(where: { $0.first?.pid == pid }), !axList.isEmpty else {
+            let axList = results[index]
+            guard !axList.isEmpty else {
                 continue
             }
             // Prefer on-screen items; pick the leftmost item for divider comparison.

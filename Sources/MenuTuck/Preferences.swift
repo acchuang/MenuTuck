@@ -118,6 +118,16 @@ final class Preferences: ObservableObject {
         sectionOverrides[key] = section.rawValue
     }
 
+    func setSectionOverrides(_ section: MenuSection, for keys: Set<String>) {
+        var updated = sectionOverrides
+        var changed = false
+        for key in keys where updated[key] != section.rawValue {
+            updated[key] = section.rawValue
+            changed = true
+        }
+        if changed { sectionOverrides = updated }
+    }
+
     func lastPhysicalSection(for key: String) -> MenuSection? { lastPhysicalSections[key] }
 
     func setLastPhysicalSection(_ section: MenuSection, for key: String) { lastPhysicalSections[key] = section }

@@ -40,12 +40,34 @@ final class TrayGridTests: XCTestCase {
         XCTAssertEqual(ItemsModel.underNotch(items, notch: 700...850).map(\.appName), ["Covered"])
     }
 
+    func testUnderNotchIgnoresOtherDisplaysAndOffscreenItems() {
+        func at(_ name: String, _ x: CGFloat, _ y: CGFloat) -> MenuBarItem {
+            MenuBarItem(id: name, pid: 1, childIndex: 0, appName: name, bundleID: nil, detail: "",
+                        frame: CGRect(x: x, y: y, width: 20, height: 24), isFromAX: true, section: .visible)
+        }
+        let items = [at("NotchBar", 760, 0), at("LowerDisplay", 760, 1080), at("Offscreen", 760, 1770)]
+        XCTAssertEqual(ItemsModel.underNotch(items, notch: 700...850, barY: 0...38).map(\.appName), ["NotchBar"])
+        XCTAssertEqual(ItemsModel.underNotch(items, notch: 700...850).map(\.appName), ["NotchBar"])
+    }
+
     func testArrowsMoveInTheGridAndStopAtEdges() {
         XCTAssertEqual(TrayGrid.move(0, keyCode: 124, count: 7), 1)
         XCTAssertEqual(TrayGrid.move(0, keyCode: 123, count: 7), 0)
         XCTAssertEqual(TrayGrid.move(1, keyCode: 125, count: 7), 5, "7 tiles lay out 4 + 3")
         XCTAssertEqual(TrayGrid.move(3, keyCode: 125, count: 7), 3, "no tile below")
         XCTAssertEqual(TrayGrid.move(6, keyCode: 126, count: 7), 2)
+        XCTAssertEqual(TrayGrid.move(7, keyCode: 123, count: 3), 1, "out-of-bounds selection clamps before moving")
+        XCTAssertEqual(TrayGrid.move(5, keyCode: 124, count: 0), 0)
+    }
+
+    func testPrintableFilterInputRejectsControlAndFunctionKeys() {
+        XCTAssertTrue(TrayGrid.isPrintableFilterInput("a"))
+        XCTAssertTrue(TrayGrid.isPrintableFilterInput("1"))
+        XCTAssertFalse(TrayGrid.isPrintableFilterInput(""))
+        XCTAssertFalse(TrayGrid.isPrintableFilterInput("\u{001B}"))
+        XCTAssertFalse(TrayGrid.isPrintableFilterInput("\u{F704}"))
+        XCTAssertFalse(TrayGrid.isPrintableFilterInput("\u{F728}"))
+        XCTAssertFalse(TrayGrid.isPrintableFilterInput("\u{F729}"))
     }
 
     func testColumnsFillOneRowThenBalance() {
